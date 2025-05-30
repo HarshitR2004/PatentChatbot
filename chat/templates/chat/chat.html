@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Chat - PatentBot{% endblock %}
+
+{% block content %}
+<div class="flex flex-col max-w-2xl mx-auto h-[70vh] border border-[#f0f2f4] rounded-xl shadow-sm overflow-hidden">
+  <!-- Chat messages -->
+  <div id="chat-box" class="flex-1 overflow-y-auto p-4 space-y-4 bg-[#f9fafb]">
+    <!-- Example messages -->
+    <div class="flex justify-start">
+      <div class="bg-[#f0f2f4] text-[#111418] p-3 rounded-xl max-w-[75%]">
+        Hello! How can I assist you with your patent today?
+      </div>
+    </div>
+    <div class="flex justify-end">
+      <div class="bg-[#1466b8] text-white p-3 rounded-xl max-w-[75%]">
+        I want to file a new patent. Where should I start?
+      </div>
+    </div>
+  </div>
+
+  <!-- Chat input -->
+  <form class="flex items-center border-t border-[#f0f2f4] p-4" onsubmit="handleSend(event)">
+    <input
+      type="text"
+      id="chat-input"
+      placeholder="Type your message..."
+      class="form-input flex-1 rounded-xl border-none bg-[#f0f2f4] h-12 px-4 text-sm focus:outline-none"
+      required
+    />
+    <button
+      type="submit"
+      class="ml-4 h-10 px-4 rounded-xl bg-[#1466b8] text-white text-sm font-bold"
+    >
+      Send
+    </button>
+  </form>
+</div>
+
+<script>
+  function handleSend(e) {
+    e.preventDefault();
+    const input = document.getElementById('chat-input');
+    const message = input.value.trim();
+    if (!message) return;
+
+    const chatBox = document.getElementById('chat-box');
+    const userMsg = document.createElement('div');
+    userMsg.className = 'flex justify-end';
+    userMsg.innerHTML = `
+      <div class="bg-[#1466b8] text-white p-3 rounded-xl max-w-[75%]">${message}</div>
+    `;
+    chatBox.appendChild(userMsg);
+    chatBox.scrollTop = chatBox.scrollHeight;
+    input.value = '';
+
+    // Simulate a bot response
+    setTimeout(() => {
+      const botMsg = document.createElement('div');
+      botMsg.className = 'flex justify-start';
+      botMsg.innerHTML = `
+        <div class="bg-[#f0f2f4] text-[#111418] p-3 rounded-xl max-w-[75%]">Got it! Let me walk you through the process...</div>
+      `;
+      chatBox.appendChild(botMsg);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }, 800);
+  }
+</script>
+{% endblock %}

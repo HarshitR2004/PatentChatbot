@@ -1,5 +1,4 @@
 from django.db import models
-from usersession.models import userSession
 
 
 # Create your models here.
