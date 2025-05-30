@@ -1,0 +1,56 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Django-specific
+*.log
+local_settings.py
+db.sqlite3
+media/
+staticfiles/
+static/
+
+# Environment variables
+.env
+
+# VS Code / IDEs
+.vscode/
+.idea/
+
+# Virtual environment
+venv/
+env/
+ENV/
+.venv/
+
+# Pytest
+.cache/
+*.cover
+coverage.xml
+
+# Migrations (optional)
+**/migrations/*.pyc
+**/migrations/__pycache__/
+# Uncomment the line below if you want to ignore all migration files
+# **/migrations/*.py
+
+# MyPy
+.mypy_cache/
+
+# Jupyter Notebooks (if used)
+.ipynb_checkpoints/
+
+# macOS
+.DS_Store
+
+# Node (if used for frontend)
+node_modules/
+
+# Compiled frontend files (optional)
+build/
+dist/
+
+# Docker
+*.pid
+*.pid.lock
