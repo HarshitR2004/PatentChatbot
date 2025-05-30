@@ -1,3 +1,9 @@
 from django.db import models
+from django.utils import timezone
 
-# Create your models here.
+class Chat(models.Model):
+    chatID = models.IntegerField(max_length = 20, primary_key = True, unique = True)
+    startTime = models.DateTimeField(default = timezone.now)
+    endTime = models.DateTimeField(default = timezone.now)
+    queryText = model
+
