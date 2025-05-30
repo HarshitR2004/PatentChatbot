@@ -5,5 +5,6 @@ class Chat(models.Model):
     chatID = models.IntegerField(max_length = 20, primary_key = True, unique = True)
     startTime = models.DateTimeField(default = timezone.now)
     endTime = models.DateTimeField(default = timezone.now)
-    queryText = model
+    queryText = models.CharField(max_length=500)
+    responseText = models.CharField(max_length=500)
 
