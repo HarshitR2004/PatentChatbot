@@ -9,7 +9,6 @@ class userSession(models.Model):
     session_id = models.CharField(max_length=255, unique=True,primary_key=True)
     created_at = models.DateTimeField(timezone.now, editable=False)
     ended_at = models.DateTimeField(blank=True)
-    chats = models.ManyToManyField(Chat, related_name='sessions', blank=True)
     user_id = models.ForeignKey(Users, on_delete=models.CASCADE, related_name='sessions', db_column='user_id')
     chat_id = models.ForeignKey(Chat, on_delete=models.CASCADE, related_name='user_sessions', db_column='chat_id')
     
