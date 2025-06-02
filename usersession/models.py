@@ -10,7 +10,6 @@ class userSession(models.Model):
     created_at = models.DateTimeField(timezone.now, editable=False)
     ended_at = models.DateTimeField(blank=True)
     user_id = models.ForeignKey(Users, on_delete=models.CASCADE, related_name='sessions', db_column='user_id')
-    chat_id = models.ForeignKey(Chat, on_delete=models.CASCADE, related_name='user_sessions', db_column='chat_id')
 
 
     def __str__(self):
