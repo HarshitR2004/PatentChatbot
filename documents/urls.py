@@ -2,12 +2,7 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    # Route for rendering the documents HTML page
-    path('', views.show_documents, name='show_documents'),
-    
-    # Route for the API to list all documents and create a new document
-    path('api/documents/', views.DocumentsListView.as_view(), name='documents-list'),
-    
-    # Route for the API to retrieve, update, or delete a specific document
-    path('api/documents/<int:docid>/', views.DocumentsDetailView.as_view(), name='document-detail'),
+    path('', views.show_documents, name='show_documents'),  # HTML page
+    path('view/<int:docid>/', views.view_document, name='view-document'),
+    path('api/documents/<int:docid>/', views.DocumentFileDetailsAPIView.as_view(), name='document-file-details'),  # single doc JSON
 ]

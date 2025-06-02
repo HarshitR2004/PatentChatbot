@@ -1,0 +1,27 @@
+{% extends "patentchatbot/base.html" %}
+
+{% block title %}View Patent Document{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto mt-10">
+    <h2 class="text-xl font-semibold mb-4 text-center">Patent Document Viewer</h2>
+
+    <div class="border border-gray-200 p-4 rounded-lg shadow-sm text-center">
+        <embed
+  src="/media/{{ document.documentPath|urlencode }}"
+  type="application/pdf"
+  class="w-full h-screen border border-gray-300 rounded-lg"
+/>
+
+
+<a
+    href="/media/{{ document.documentPath }}"
+    target="_blank"
+    class="mt-4 inline-block text-blue-600 hover:underline"
+>
+    Open Document in New Tab
+</a>
+
+    </div>
+</div>
+{% endblock %}
