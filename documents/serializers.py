@@ -28,3 +28,4 @@ class DocumentSerializer(ModelSerializer):
         """
         instance.delete()
         return instance
+

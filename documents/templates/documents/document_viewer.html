@@ -1,0 +1,48 @@
+{% extends "patentchatbot/base.html" %}
+
+{% block title %}{{ document.patentNumber }} - Document Viewer{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <!-- Document Header -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 mb-2">
+                Patent Document: {{ document.patentNumber }}
+            </h1>
+            <div class="space-y-1 text-sm text-gray-600">
+                <p><strong>Document ID:</strong> {{ document.docid }}</p>
+                <p><strong>Uploaded:</strong> {{ document.uploadTime|date:"M d, Y H:i" }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- PDF Viewer -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div id="pdf-container" class="relative">
+            <iframe 
+                id="pdf-viewer"
+                src="{{ document.documentPath.url }}"
+                type="application/pdf"
+                class="w-full h-[80vh] border-0"
+                title="PDF Viewer">
+                <div class="p-8 text-center">
+                    <p class="text-gray-600 mb-4">Your browser doesn't support PDF viewing.</p>
+                    <a href="{{ document.documentPath.url }}" 
+                       class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors">
+                        Download PDF
+                    </a>
+                </div>
+            </iframe>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <div class="mt-6">
+        <a href="{% url 'document-list' %}" 
+           class="text-blue-600 hover:text-blue-800 font-medium">
+            ← Back to Documents
+        </a>
+    </div>
+</div>
+{% endblock %}

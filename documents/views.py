@@ -1,33 +1,60 @@
-from .models import Documents
-from .serializers import DocumentSerializer
-from rest_framework.decorators import api_view
+from django.shortcuts import get_object_or_404, render
+from django.http import Http404
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.views import APIView
+from django.core.paginator import Paginator
+from .models import Documents
+from .serializers import DocumentSerializer
 
-# Create your views here.
-@api_view(['GET'])
-def view_documents(request):
+class DocumentListAPIView(APIView):
     """
-    Get all documents as JSON.
+    GET: List all documents with pagination only
     """
-    try:
-        documents = Documents.objects.all()
-        serializer = DocumentSerializer(documents, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-    except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
-@api_view(['GET'])    
-def view_document(request, docid):
-    """
-    Get a specific document by its ID.
-    """
-    try:
-        document = Documents.objects.get(docid=docid)
-        serializer = DocumentSerializer(document)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-    except Documents.DoesNotExist:
-        return Response({'error': 'Document not found'}, status=status.HTTP_404_NOT_FOUND)
-    except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    def get(self, request):
+        """Get list of documents with pagination"""
+        try:
+            documents = Documents.objects.all().order_by('-uploadTime')
+            
+            # Pagination
+            page = request.GET.get('page', 1)
+            page_size = request.GET.get('page_size', 10)
+            
+            paginator = Paginator(documents, page_size)
+            page_obj = paginator.get_page(page)
+            
+            serializer = DocumentSerializer(
+                page_obj.object_list, 
+                many=True, 
+                context={'request': request}
+            )
+            
+            return Response({
+                'documents': serializer.data,
+                'pagination': {
+                    'current_page': page_obj.number,
+                    'total_pages': paginator.num_pages,
+                    'total_documents': paginator.count,
+                    'has_next': page_obj.has_next(),
+                    'has_previous': page_obj.has_previous(),
+                }
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response({
+                'error': f'Failed to retrieve documents: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+def document_list(request):
+    """Render document list page"""
+    return render(request, 'documents/document_list.html')
+
+def document_viewer(request, docid):
+    """Render document details and PDF viewer"""
+    document = get_object_or_404(Documents, docid=docid)
+    return render(request, 'documents/document_viewer.html', {
+        'document': document
+    })
+
 

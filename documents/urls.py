@@ -2,6 +2,10 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    path('', views.view_documents, name='show_documents'),
-    path('<int:docid>/', views.view_document, name='view_document'),
+    # Web pages
+    path('', views.document_list, name='document-list'),
+    path('viewer/<int:docid>/', views.document_viewer, name='document-viewer'),
+    
+    # API endpoints  
+    path('api/', views.DocumentListAPIView.as_view(), name='document-list-api'),
 ]

@@ -1,0 +1,136 @@
+{% extends "patentchatbot/base.html" %}
+
+{% block title %}Patent Documents - PatentBot{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <!-- Header Section -->
+    <div class="mb-6">
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">Patent Documents</h1>
+        <p class="text-gray-600">Browse patent documents</p>
+    </div>
+
+    <!-- Documents Grid -->
+    <div id="documents-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        <!-- Documents will be loaded here dynamically -->
+    </div>
+
+    <!-- Pagination -->
+    <div id="pagination-container" class="flex justify-center">
+        <!-- Pagination will be loaded here -->
+    </div>
+
+    <!-- Loading State -->
+    <div id="loading-state" class="text-center py-12">
+        <i class="fas fa-spinner fa-spin text-4xl text-gray-400 mb-4"></i>
+        <p class="text-gray-600">Loading documents...</p>
+    </div>
+
+    <!-- Empty State -->
+    <div id="empty-state" class="text-center py-12 hidden">
+        <i class="fas fa-file-pdf text-6xl text-gray-300 mb-4"></i>
+        <h3 class="text-xl font-semibold text-gray-700 mb-2">No Documents Found</h3>
+        <p class="text-gray-600">No patent documents available.</p>
+    </div>
+</div>
+
+<script>
+let currentPage = 1;
+
+// Load documents when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    loadDocuments();
+});
+
+async function loadDocuments(page = 1) {
+    const container = document.getElementById('documents-container');
+    const loadingState = document.getElementById('loading-state');
+    const emptyState = document.getElementById('empty-state');
+    const paginationContainer = document.getElementById('pagination-container');
+    
+    // Show loading
+    loadingState.classList.remove('hidden');
+    container.innerHTML = '';
+    emptyState.classList.add('hidden');
+    paginationContainer.innerHTML = '';
+    
+    try {
+        const url = new URL('/documents/api/', window.location.origin);
+        url.searchParams.append('page', page);
+        url.searchParams.append('page_size', '9');
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (response.ok && data.documents && data.documents.length > 0) {
+            renderDocuments(data.documents);
+            renderPagination(data.pagination);
+        } else {
+            emptyState.classList.remove('hidden');
+        }
+    } catch (error) {
+        console.error('Error loading documents:', error);
+        container.innerHTML = '<div class="col-span-3 text-center text-red-600">Error loading documents</div>';
+    } finally {
+        loadingState.classList.add('hidden');
+    }
+}
+
+function renderDocuments(documents) {
+    const container = document.getElementById('documents-container');
+    container.innerHTML = documents.map(doc => `
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+            <div class="p-6">
+                <div class="flex items-center mb-4">
+                    <i class="fas fa-file-pdf text-red-500 text-2xl mr-3"></i>
+                    <div class="flex-1">
+                        <h3 class="font-semibold text-gray-900 truncate">${doc.patentNumber}</h3>
+                        <p class="text-sm text-gray-500">Doc ID: ${doc.docid}</p>
+                    </div>
+                </div>
+                
+                <div class="text-sm text-gray-600 mb-4">
+                    <p><strong>Uploaded:</strong> ${new Date(doc.uploadTime).toLocaleDateString()}</p>
+                </div>
+                
+                <div class="flex justify-center">
+                    <a href="/documents/viewer/${doc.docid}/" 
+                       class="bg-blue-600 text-white py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors text-sm">
+                        <i class="fas fa-eye mr-2"></i>View Details
+                    </a>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function renderPagination(pagination) {
+    const container = document.getElementById('pagination-container');
+    if (pagination.total_pages <= 1) return;
+    
+    let paginationHTML = '<div class="flex space-x-2">';
+    
+    // Previous button
+    if (pagination.has_previous) {
+        paginationHTML += `<button onclick="loadDocuments(${pagination.current_page - 1})" 
+                          class="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">Previous</button>`;
+    }
+    
+    // Page numbers
+    for (let i = 1; i <= pagination.total_pages; i++) {
+        const isActive = i === pagination.current_page;
+        paginationHTML += `<button onclick="loadDocuments(${i})" 
+                          class="px-3 py-2 border rounded-lg ${isActive ? 'bg-blue-600 text-white' : 'border-gray-300 hover:bg-gray-50'}">${i}</button>`;
+    }
+    
+    // Next button
+    if (pagination.has_next) {
+        paginationHTML += `<button onclick="loadDocuments(${pagination.current_page + 1})" 
+                          class="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">Next</button>`;
+    }
+    
+    paginationHTML += '</div>';
+    container.innerHTML = paginationHTML;
+}
+</script>
+{% endblock %}
