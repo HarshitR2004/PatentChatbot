@@ -1,8 +1,10 @@
 from django.db import models
-from django.utils import timezone
+
 class Documents(models.Model):
-    docid = models.IntegerField(max_length = 20, primary_key = True, unique = True)
+    docid = models.AutoField(primary_key = True)
     patentNumber = models.CharField(max_length = 20)
-    uploadTime = models.DateTimeField(default=timezone.now)
+    uploadTime = models.DateTimeField(auto_now=True)
     documentPath = models.CharField(max_length = 300)
 
+    def __str__(self):
+        return f"{self.patentNumber}"

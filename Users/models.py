@@ -46,5 +46,7 @@ class Users(AbstractBaseUser):
 
     def has_module_perms(self, app_label):
         return True
+    def get_userID(self):
+        return self.userID
 
     
