@@ -8,8 +8,6 @@ def view_document(request, docid):
     document = get_object_or_404(Documents, docid=docid)
     return render(request, 'documents/view_document.html', {'document': document})
 
-def show_documents(request):
-    return render(request, 'documents/documents.html')
 
 class DocumentFileDetailsAPIView(APIView):
     def get(self, request, docid):
