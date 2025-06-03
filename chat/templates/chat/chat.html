@@ -3,73 +3,446 @@
 {% block title %}Chat - PatentBot{% endblock %}
 
 {% block content %}
-<div class="flex flex-col max-w-2xl mx-auto h-[70vh] border border-[#f0f2f4] rounded-xl shadow-sm overflow-hidden">
+<div class="flex flex-col max-w-4xl mx-auto h-[80vh] border border-[#f0f2f4] rounded-xl shadow-sm overflow-hidden">
 
-  <!-- Header -->
-  <div class="bg-[#1466b8] text-white text-lg font-semibold px-6 py-4">
-    PatentBot Chat
+  <!-- Header with Mode Toggle -->
+  <div class="bg-[#1466b8] text-white px-6 py-4">
+    <div class="flex justify-between items-center">
+      <h1 class="text-lg font-semibold">PatentBot Chat</h1>
+      <div class="flex items-center space-x-4">
+        <div class="flex items-center space-x-2">
+          <label class="text-sm font-medium">Mode:</label>
+          <select id="chat-mode" class="bg-white text-black px-3 py-1 rounded text-sm">
+            <option value="test">Test Mode</option>
+            <option value="normal">Normal Mode</option>
+          </select>
+        </div>
+        <div id="session-info" class="text-sm bg-blue-700 px-3 py-1 rounded hidden">
+          Session: <span id="session-id">-</span>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Chat messages -->
   <div id="chat-box" class="flex-1 overflow-y-auto p-4 space-y-4 bg-[#f9fafb]">
-    <!-- Example messages -->
+    <!-- Welcome message -->
     <div class="flex justify-start">
       <div class="bg-[#f0f2f4] text-[#111418] p-3 rounded-xl max-w-[75%]">
-        Hello! How can I assist you with your patent today?
+        <div class="flex items-center space-x-2 mb-2">
+          <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+          <span class="text-sm font-medium">PatentBot</span>
+        </div>
+        Hello! I'm your patent assistant. Ask me anything about patents, filing procedures, or intellectual property. You can switch between Test Mode (quick responses) and Normal Mode (full chat history) above.
       </div>
     </div>
-    <div class="flex justify-end">
-      <div class="bg-[#1466b8] text-white p-3 rounded-xl max-w-[75%]">
-        I want to file a new patent. Where should I star
+  </div>
+
+  <!-- Typing indicator -->
+  <div id="typing-indicator" class="px-4 hidden">
+    <div class="flex justify-start">
+      <div class="bg-[#f0f2f4] text-[#111418] p-3 rounded-xl max-w-[75%]">
+        <div class="flex items-center space-x-2">
+          <div class="flex space-x-1">
+            <div class="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
+            <div class="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
+            <div class="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+          </div>
+          <span class="text-sm" id="typing-text">AI is thinking...</span>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- Chat input -->
-  <form class="flex items-center border-t border-[#f0f2f4] p-4" onsubmit="handleSend(event)">
+  <form class="flex items-center border-t border-[#f0f2f4] p-4" id="chat-form">
+    {% csrf_token %}
     <input
       type="text"
       id="chat-input"
-      placeholder="Type your message..."
+      placeholder="Ask about patents, filing procedures, IP law..."
       class="form-input flex-1 rounded-xl border-none bg-[#f0f2f4] h-12 px-4 text-sm focus:outline-none"
       required
     />
     <button
       type="submit"
-      class="ml-4 h-10 px-4 rounded-xl bg-[#1466b8] text-white text-sm font-bold"
+      id="send-button"
+      class="ml-4 h-10 px-4 rounded-xl bg-[#1466b8] text-white text-sm font-bold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
     >
-      Send
+      <span id="send-text">Send</span>
+      <span id="send-spinner" class="hidden">
+        <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+      </span>
     </button>
   </form>
 </div>
 
+<!-- Progress Bar -->
+<div id="progress-container" class="max-w-4xl mx-auto mt-2 hidden">
+  <div class="bg-gray-200 rounded-full h-1">
+    <div id="progress-bar" class="bg-blue-600 h-1 rounded-full transition-all duration-300" style="width: 0%"></div>
+  </div>
+  <div class="text-xs text-gray-500 mt-1 text-center">
+    <span id="progress-text">Generating response...</span>
+  </div>
+</div>
+
 <script>
-  function handleSend(e) {
+class PatentChatBot {
+  constructor() {
+    this.chatBox = document.getElementById('chat-box');
+    this.chatInput = document.getElementById('chat-input');
+    this.sendButton = document.getElementById('send-button');
+    this.sendText = document.getElementById('send-text');
+    this.sendSpinner = document.getElementById('send-spinner');
+    this.typingIndicator = document.getElementById('typing-indicator');
+    this.typingText = document.getElementById('typing-text');
+    this.chatMode = document.getElementById('chat-mode');
+    this.sessionInfo = document.getElementById('session-info');
+    this.sessionIdSpan = document.getElementById('session-id');
+    this.progressContainer = document.getElementById('progress-container');
+    this.progressBar = document.getElementById('progress-bar');
+    this.progressText = document.getElementById('progress-text');
+    
+    this.sessionId = null;
+    this.isStreaming = false;
+    this.currentBotMessage = null;
+    
+    this.init();
+  }
+
+  init() {
+    document.getElementById('chat-form').addEventListener('submit', (e) => this.handleSend(e));
+    this.chatMode.addEventListener('change', () => this.handleModeChange());
+    
+    // Focus input on load
+    this.chatInput.focus();
+    
+    // Handle Enter key
+    this.chatInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        document.getElementById('chat-form').dispatchEvent(new Event('submit'));
+      }
+    });
+  }
+
+  handleModeChange() {
+    const mode = this.chatMode.value;
+    if (mode === 'normal') {
+      this.sessionInfo.classList.remove('hidden');
+    } else {
+      this.sessionInfo.classList.add('hidden');
+      this.sessionId = null;
+      this.sessionIdSpan.textContent = '-';
+    }
+  }
+
+  async handleSend(e) {
     e.preventDefault();
-    const input = document.getElementById('chat-input');
-    const message = input.value.trim();
+    
+    if (this.isStreaming) return;
+    
+    const message = this.chatInput.value.trim();
     if (!message) return;
 
-    const chatBox = document.getElementById('chat-box');
-    const userMsg = document.createElement('div');
-    userMsg.className = 'flex justify-end';
-    userMsg.innerHTML = `
-      <div class="bg-[#1466b8] text-white p-3 rounded-xl max-w-[75%]">${message}</div>
-    `;
-    chatBox.appendChild(userMsg);
-    chatBox.scrollTop = chatBox.scrollHeight;
-    input.value = '';
-
-    // Simulate a bot response
-    setTimeout(() => {
-      const botMsg = document.createElement('div');
-      botMsg.className = 'flex justify-start';
-      botMsg.innerHTML = `
-        <div class="bg-[#f0f2f4] text-[#111418] p-3 rounded-xl max-w-[75%]">Got it! Let me walk you through the process...</div>
-      `;
-      chatBox.appendChild(botMsg);
-      chatBox.scrollTop = chatBox.scrollHeight;
-    }, 800);
+    // Add user message
+    this.addUserMessage(message);
+    this.chatInput.value = '';
+    
+    // Prepare bot response
+    this.showTypingIndicator();
+    this.setLoadingState(true);
+    
+    const isTestMode = this.chatMode.value === 'test';
+    
+    try {
+      await this.sendStreamingMessage(message, isTestMode);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      this.addErrorMessage('Failed to send message. Please try again.');
+    } finally {
+      this.hideTypingIndicator();
+      this.setLoadingState(false);
+    }
   }
+
+  addUserMessage(message) {
+    const userMsg = document.createElement('div');
+    userMsg.className = 'flex justify-end animate-fade-in';
+    userMsg.innerHTML = `
+      <div class="bg-[#1466b8] text-white p-3 rounded-xl max-w-[75%] break-words">
+        ${this.escapeHtml(message)}
+      </div>
+    `;
+    this.chatBox.appendChild(userMsg);
+    this.scrollToBottom();
+  }
+
+  createBotMessage() {
+    const botMsg = document.createElement('div');
+    botMsg.className = 'flex justify-start animate-fade-in';
+    botMsg.innerHTML = `
+      <div class="bg-[#f0f2f4] text-[#111418] p-3 rounded-xl max-w-[75%] break-words">
+        <div class="flex items-center space-x-2 mb-2">
+          <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+          <span class="text-sm font-medium">PatentBot</span>
+          <span class="text-xs text-gray-500" id="response-mode">${this.chatMode.value} mode</span>
+        </div>
+        <div class="message-content">
+          <span class="streaming-cursor">|</span>
+        </div>
+      </div>
+    `;
+    this.chatBox.appendChild(botMsg);
+    this.currentBotMessage = botMsg.querySelector('.message-content');
+    this.scrollToBottom();
+    return botMsg;
+  }
+
+  async sendStreamingMessage(query, isTestMode) {
+    const payload = {
+      query: query,
+      test: isTestMode
+    };
+
+    if (!isTestMode && this.sessionId) {
+      payload.session_id = this.sessionId;
+    }
+
+    this.isStreaming = true;
+    this.progressContainer.classList.remove('hidden');
+    this.progressText.textContent = 'Generating response...';
+    
+    try {
+      const response = await fetch('/chat/api/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': this.getCsrfToken()
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        // For streaming responses, don't try to parse as JSON
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        } else {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+      }
+
+      await this.handleStreamingResponse(response);
+    } catch (error) {
+      console.error('Streaming error:', error);
+      this.addErrorMessage(`Error: ${error.message}`);
+    } finally {
+      this.isStreaming = false;
+      this.progressContainer.classList.add('hidden');
+      this.progressBar.style.width = '0%';
+    }
+  }
+
+  async handleStreamingResponse(response) {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    
+    let botMessageElement = null;
+    let accumulatedText = '';
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) break;
+        
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              
+              switch (data.event) {
+                case 'start':
+                  this.hideTypingIndicator();
+                  botMessageElement = this.createBotMessage();
+                  this.progressText.textContent = data.message;
+                  
+                  if (data.session_id) {
+                    this.sessionId = data.session_id;
+                    this.sessionIdSpan.textContent = data.session_id;
+                  }
+                  break;
+                  
+                case 'token':
+                  if (this.currentBotMessage) {
+                    accumulatedText = data.accumulated_text;
+                    this.currentBotMessage.innerHTML = accumulatedText + '<span class="streaming-cursor animate-pulse">|</span>';
+                    this.scrollToBottom();
+                    
+                    // Update progress
+                    if (data.token_count) {
+                      const estimatedTotal = Math.max(data.token_count * 2, 50); // Rough estimation
+                      const progress = Math.min((data.token_count / estimatedTotal) * 100, 95);
+                      this.progressBar.style.width = `${progress}%`;
+                      this.progressText.textContent = `Generated ${data.token_count} tokens...`;
+                    }
+                  }
+                  break;
+                  
+                case 'complete':
+                  if (this.currentBotMessage) {
+                    this.currentBotMessage.innerHTML = data.full_response;
+                    this.addMetadata(botMessageElement, data);
+                  }
+                  this.progressBar.style.width = '100%';
+                  this.progressText.textContent = 'Complete!';
+                  
+                  // Hide progress after a delay
+                  setTimeout(() => {
+                    this.progressContainer.classList.add('hidden');
+                    this.progressBar.style.width = '0%';
+                  }, 1000);
+                  break;
+                  
+                case 'error':
+                  this.addErrorMessage(data.message);
+                  break;
+              }
+            } catch (e) {
+              console.error('Error parsing JSON:', e, line);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error reading stream:', error);
+      this.addErrorMessage('Connection interrupted. Please try again.');
+    }
+  }
+
+  addMetadata(messageElement, data) {
+    const metadataDiv = document.createElement('div');
+    metadataDiv.className = 'text-xs text-gray-500 mt-2 pt-2 border-t border-gray-200';
+    
+    let metadata = `${data.total_tokens || 0} tokens`;
+    if (data.chat_id) {
+      metadata += ` • Chat ID: ${data.chat_id}`;
+    }
+    if (data.start_time && data.end_time) {
+      const duration = new Date(data.end_time) - new Date(data.start_time);
+      metadata += ` • ${(duration / 1000).toFixed(1)}s`;
+    }
+    
+    metadataDiv.textContent = metadata;
+    messageElement.querySelector('.bg-\\[\\#f0f2f4\\]').appendChild(metadataDiv);
+  }
+
+  addErrorMessage(message) {
+    const errorMsg = document.createElement('div');
+    errorMsg.className = 'flex justify-center animate-fade-in';
+    errorMsg.innerHTML = `
+      <div class="bg-red-100 text-red-700 p-3 rounded-xl max-w-[75%] text-center">
+        <div class="flex items-center space-x-2">
+          <span>⚠️</span>
+          <span>${this.escapeHtml(message)}</span>
+        </div>
+      </div>
+    `;
+    this.chatBox.appendChild(errorMsg);
+    this.scrollToBottom();
+  }
+
+  showTypingIndicator() {
+    this.typingIndicator.classList.remove('hidden');
+    this.scrollToBottom();
+  }
+
+  hideTypingIndicator() {
+    this.typingIndicator.classList.add('hidden');
+  }
+
+  setLoadingState(loading) {
+    this.sendButton.disabled = loading;
+    this.chatInput.disabled = loading;
+    
+    if (loading) {
+      this.sendText.classList.add('hidden');
+      this.sendSpinner.classList.remove('hidden');
+    } else {
+      this.sendText.classList.remove('hidden');
+      this.sendSpinner.classList.add('hidden');
+    }
+  }
+
+  scrollToBottom() {
+    setTimeout(() => {
+      this.chatBox.scrollTop = this.chatBox.scrollHeight;
+    }, 10);
+  }
+
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  getCsrfToken() {
+    return document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+  }
+}
+
+// Initialize chat when page loads
+document.addEventListener('DOMContentLoaded', function() {
+  new PatentChatBot();
+});
 </script>
+
+<style>
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.streaming-cursor {
+  color: #1466b8;
+  font-weight: bold;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animate-pulse {
+  animation: pulse 1s infinite;
+}
+
+.animate-bounce {
+  animation: bounce 1s infinite;
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(-25%);
+    animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
+  }
+  50% {
+    transform: translateY(0);
+    animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+  }
+}
+</style>
 {% endblock %}
