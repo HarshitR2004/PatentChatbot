@@ -7,35 +7,31 @@ from .models import Chat
 from usersession.models import userSession
 from .serializers import ChatSerializer
 from Users.models import Users
-from django.shortcuts import render
+import ollama
 
+model = 'gemma3'
+client = ollama.Client()
 
-
-def generate_rag_response(query):
+def generate_rag_response(query : str) -> str:
     """
     Placeholder for RAG response generation logic
     In the future, this will integrate with RAG pipeline
     """
-    dummy_data = {
-        'what is a patent': 'A patent is a form of intellectual property that gives the patent holder exclusive rights to an invention for a certain period of time.',
-        'how do i file a patent': 'To file a patent, you need to prepare a detailed description of your invention, including claims, drawings, and an abstract. Then, submit it to the relevant patent office.',
-        'what are the types of patents': 'There are three main types of patents: utility patents, design patents, and plant patents.',
-        'what is the duration of a patent': 'The duration of a patent typically lasts for 20 years from the filing date, but this can vary by jurisdiction and type of patent.',
-    }
+    response = client.chat(model=model,
+        messages=[
+            {"role": "user", "content": query}
+        ],
+    )
     
-    # Match query against dummy data to simulate RAG response
-    query_lower = query.lower().strip()
-    for key, response in dummy_data.items():
-        if key in query_lower:
-            return response
+    return response['message']['content'] if 'message' in response else "No response generated."
     
-    return "No response found for the given query."
+    
 
 class ChatAPIView(APIView):
     def post(self, request):
         query = request.data.get('query')
         session_id = request.data.get('session_id')
-        user_id = request.user.get_UserID()
+        user_id = request.user.id 
         test_mode = request.data.get('test', False)
         
         if test_mode:

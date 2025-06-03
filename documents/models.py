@@ -6,7 +6,7 @@ class Documents(models.Model):
     patentNumber = models.CharField(max_length=20)
     uploadTime = models.DateTimeField(auto_now_add=True)
     documentPath = models.FileField(
-        upload_to='documents/patents/',
+        upload_to='patents/',
         validators=[FileExtensionValidator(allowed_extensions=['pdf'])],
         help_text="Only PDF files are allowed"
     )
