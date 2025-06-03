@@ -28,4 +28,11 @@ class DocumentSerializer(ModelSerializer):
         """
         instance.delete()
         return instance
-
+class PatentUploadSerializer(serializers.ModelSerializer):
+    upload_at = serializers.DateTimeField(read_only=True)
+    class Meta:
+        model= User
+        fields=['patent', 'upload_at']
+    def update(self, instance, validated_data):
+        instance.upload_at =timezone.now()
+        return super().update(instance, validated_data)
