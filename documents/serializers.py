@@ -1,5 +1,7 @@
-from rest_framework.serializers  import ModelSerializer
+from rest_framework.serializers import ModelSerializer
 from .models import Documents
+from rest_framework import serializers
+from django.utils import timezone
 
 class DocumentSerializer(ModelSerializer):
     class Meta:
@@ -28,11 +30,18 @@ class DocumentSerializer(ModelSerializer):
         """
         instance.delete()
         return instance
-class PatentUploadSerializer(serializers.ModelSerializer):
-    upload_at = serializers.DateTimeField(read_only=True)
+    
+    
+
+    
+class DocumentUploadSerializer(ModelSerializer):
+    """Serializer for uploading new documents"""
     class Meta:
-        model= User
-        fields=['patent', 'upload_at']
-    def update(self, instance, validated_data):
-        instance.upload_at =timezone.now()
-        return super().update(instance, validated_data)
+        model = Documents
+        fields = ['patentNumber', 'documentPath']
+        
+    def validate_patentNumber(self, value):
+        """Ensure patent number is not empty"""
+        if not value or not value.strip():
+            raise serializers.ValidationError("Patent number is required")
+        return value.strip()

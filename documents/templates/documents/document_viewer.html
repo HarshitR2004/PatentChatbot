@@ -6,16 +6,90 @@
 <div class="max-w-6xl mx-auto">
     <!-- Document Header -->
     <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-        <div>
-            <h1 class="text-2xl font-bold text-gray-900 mb-2">
-                Patent Document: {{ document.patentNumber }}
-            </h1>
-            <div class="space-y-1 text-sm text-gray-600">
-                <p><strong>Document ID:</strong> {{ document.docid }}</p>
-                <p><strong>Uploaded:</strong> {{ document.uploadTime|date:"M d, Y H:i" }}</p>
+        <div class="flex justify-between items-start">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900 mb-2">
+                    Patent Document: {{ document.patentNumber }}
+                </h1>
+                <div class="space-y-1 text-sm text-gray-600">
+                    <p><strong>Document ID:</strong> {{ document.docid }}</p>
+                    <p><strong>Uploaded:</strong> {{ document.uploadTime|date:"M d, Y H:i" }}</p>
+                </div>
+            </div>
+            <!-- Upload Button -->
+            <button id="upload-btn" 
+                    class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors">
+                <i class="fas fa-upload mr-2"></i>Upload New Document
+            </button>
+        </div>
+    </div>
+
+    <!-- Upload Modal -->
+    <div id="upload-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg max-w-md w-full p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900">Upload Patent Document</h3>
+                    <button id="close-modal" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+                
+                <form id="upload-form" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="mb-4">
+                        <label for="patent-number" class="block text-sm font-medium text-gray-700 mb-2">
+                            Patent Number <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text" 
+                               id="patent-number" 
+                               name="patentNumber" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               placeholder="Enter patent number"
+                               required>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <label for="document-file" class="block text-sm font-medium text-gray-700 mb-2">
+                            PDF Document <span class="text-red-500">*</span>
+                        </label>
+                        <input type="file" 
+                               id="document-file" 
+                               name="documentPath" 
+                               accept=".pdf"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               required>
+                        <p class="text-xs text-gray-500 mt-1">Only PDF files are allowed</p>
+                    </div>
+                    
+                    <div class="flex gap-3">
+                        <button type="submit" 
+                                id="submit-btn"
+                                class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
+                            <span id="submit-text">Upload Document</span>
+                            <i id="submit-spinner" class="fas fa-spinner fa-spin ml-2 hidden"></i>
+                        </button>
+                        <button type="button" 
+                                id="cancel-btn"
+                                class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                            Cancel
+                        </button>
+                    </div>
+                </form>
+                
+                <!-- Upload Progress -->
+                <div id="upload-progress" class="mt-4 hidden">
+                    <div class="bg-gray-200 rounded-full h-2">
+                        <div id="progress-bar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                    <p id="progress-text" class="text-sm text-gray-600 mt-1">Uploading...</p>
+                </div>
             </div>
         </div>
     </div>
+
+    <!-- Success/Error Messages -->
+    <div id="message-container" class="mb-4"></div>
 
     <!-- PDF Viewer -->
     <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
@@ -45,4 +119,174 @@
         </a>
     </div>
 </div>
+
+<script>
+class DocumentUploader {
+    constructor() {
+        this.uploadBtn = document.getElementById('upload-btn');
+        this.uploadModal = document.getElementById('upload-modal');
+        this.closeModal = document.getElementById('close-modal');
+        this.cancelBtn = document.getElementById('cancel-btn');
+        this.uploadForm = document.getElementById('upload-form');
+        this.submitBtn = document.getElementById('submit-btn');
+        this.submitText = document.getElementById('submit-text');
+        this.submitSpinner = document.getElementById('submit-spinner');
+        this.uploadProgress = document.getElementById('upload-progress');
+        this.progressBar = document.getElementById('progress-bar');
+        this.progressText = document.getElementById('progress-text');
+        this.messageContainer = document.getElementById('message-container');
+        
+        this.initEventListeners();
+    }
+    
+    initEventListeners() {
+        this.uploadBtn.addEventListener('click', () => this.openModal());
+        this.closeModal.addEventListener('click', () => this.closeModalHandler());
+        this.cancelBtn.addEventListener('click', () => this.closeModalHandler());
+        this.uploadForm.addEventListener('submit', (e) => this.handleSubmit(e));
+        
+        // Close modal when clicking outside
+        this.uploadModal.addEventListener('click', (e) => {
+            if (e.target === this.uploadModal) {
+                this.closeModalHandler();
+            }
+        });
+    }
+    
+    openModal() {
+        this.uploadModal.classList.remove('hidden');
+        this.resetForm();
+    }
+    
+    closeModalHandler() {
+        this.uploadModal.classList.add('hidden');
+        this.resetForm();
+    }
+    
+    resetForm() {
+        this.uploadForm.reset();
+        this.hideProgress();
+        this.hideMessage();
+        this.setSubmitState(false);
+    }
+    
+    async handleSubmit(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this.uploadForm);
+        const patentNumber = formData.get('patentNumber');
+        const file = formData.get('documentPath');
+        
+        // Validation
+        if (!patentNumber.trim()) {
+            this.showMessage('Patent number is required', 'error');
+            return;
+        }
+        
+        if (!file || file.size === 0) {
+            this.showMessage('Please select a PDF file', 'error');
+            return;
+        }
+        
+        if (file.type !== 'application/pdf') {
+            this.showMessage('Only PDF files are allowed', 'error');
+            return;
+        }
+        
+        await this.uploadDocument(formData);
+    }
+    
+    async uploadDocument(formData) {
+        this.setSubmitState(true);
+        this.showProgress();
+        
+        try {
+            const response = await fetch('/documents/api/upload/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': this.getCsrfToken()
+                },
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok && data.success) {
+                this.showMessage('Document uploaded successfully!', 'success');
+                setTimeout(() => {
+                    window.location.href = `/documents/viewer/${data.document.docid}/`;
+                }, 2000);
+            } else {
+                const errorMsg = data.errors ? this.formatErrors(data.errors) : data.error || 'Upload failed';
+                this.showMessage(errorMsg, 'error');
+            }
+        } catch (error) {
+            console.error('Upload error:', error);
+            this.showMessage('Network error. Please try again.', 'error');
+        } finally {
+            this.setSubmitState(false);
+            this.hideProgress();
+        }
+    }
+    
+    setSubmitState(isLoading) {
+        this.submitBtn.disabled = isLoading;
+        if (isLoading) {
+            this.submitText.textContent = 'Uploading...';
+            this.submitSpinner.classList.remove('hidden');
+        } else {
+            this.submitText.textContent = 'Upload Document';
+            this.submitSpinner.classList.add('hidden');
+        }
+    }
+    
+    showProgress() {
+        this.uploadProgress.classList.remove('hidden');
+        this.progressBar.style.width = '30%';
+        setTimeout(() => {
+            this.progressBar.style.width = '70%';
+        }, 500);
+    }
+    
+    hideProgress() {
+        this.uploadProgress.classList.add('hidden');
+        this.progressBar.style.width = '0%';
+    }
+    
+    showMessage(message, type) {
+        const bgColor = type === 'success' ? 'bg-green-100 border-green-400 text-green-700' : 'bg-red-100 border-red-400 text-red-700';
+        const icon = type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-circle';
+        
+        this.messageContainer.innerHTML = `
+            <div class="border px-4 py-3 rounded-lg ${bgColor}">
+                <div class="flex items-center">
+                    <i class="${icon} mr-2"></i>
+                    <span>${message}</span>
+                </div>
+            </div>
+        `;
+    }
+    
+    hideMessage() {
+        this.messageContainer.innerHTML = '';
+    }
+    
+    formatErrors(errors) {
+        const errorMessages = [];
+        for (const [field, messages] of Object.entries(errors)) {
+            errorMessages.push(`${field}: ${messages.join(', ')}`);
+        }
+        return errorMessages.join('; ');
+    }
+    
+    getCsrfToken() {
+        return document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+    }
+}
+
+// Initialize the uploader when the page loads
+document.addEventListener('DOMContentLoaded', function() {
+    new DocumentUploader();
+});
+</script>
 {% endblock %}

@@ -8,4 +8,5 @@ urlpatterns = [
     
     # API endpoints  
     path('api/', views.DocumentListAPIView.as_view(), name='document-list-api'),
+    path('api/upload/', views.document_upload, name='document-upload'),
 ]

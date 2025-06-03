@@ -5,9 +5,111 @@
 {% block content %}
 <div class="max-w-6xl mx-auto">
     <!-- Header Section -->
-    <div class="mb-6">
-        <h1 class="text-3xl font-bold text-gray-900 mb-2">Patent Documents</h1>
-        <p class="text-gray-600">Browse patent documents</p>
+    <div class="mb-6 flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">Patent Documents</h1>
+            <p class="text-gray-600">Browse and manage your patent document collection</p>
+        </div>
+        <!-- Upload Button -->
+        <button id="upload-btn" 
+                class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors flex items-center shadow-sm">
+            <i class="fas fa-upload mr-2"></i>Upload Document
+        </button>
+    </div>
+
+    <!-- Stats Bar -->
+    <div id="stats-bar" class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6 hidden">
+        <div class="flex justify-between items-center text-sm text-gray-600">
+            <span>Total Documents: <span id="total-count" class="font-semibold text-gray-900">0</span></span>
+            <span>Page <span id="current-page" class="font-semibold text-gray-900">1</span> of <span id="total-pages" class="font-semibold text-gray-900">1</span></span>
+        </div>
+    </div>
+
+    <!-- Upload Modal -->
+    <div id="upload-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg max-w-md w-full p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900">Upload Patent Document</h3>
+                    <button id="close-modal" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+                
+                <form id="upload-form" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="mb-4">
+                        <label for="patent-number" class="block text-sm font-medium text-gray-700 mb-2">
+                            Patent Number <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text" 
+                               id="patent-number" 
+                               name="patentNumber" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               placeholder="Enter patent number (e.g., US12345678)"
+                               required>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <label for="document-file" class="block text-sm font-medium text-gray-700 mb-2">
+                            PDF Document <span class="text-red-500">*</span>
+                        </label>
+                        <input type="file" 
+                               id="document-file" 
+                               name="documentPath" 
+                               accept=".pdf"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               required>
+                        <p class="text-xs text-gray-500 mt-1">Only PDF files are allowed</p>
+                    </div>
+                    
+                    <div class="flex gap-3">
+                        <button type="submit" 
+                                id="submit-btn"
+                                class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
+                            <span id="submit-text">Upload Document</span>
+                            <i id="submit-spinner" class="fas fa-spinner fa-spin ml-2 hidden"></i>
+                        </button>
+                        <button type="button" 
+                                id="cancel-btn"
+                                class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                            Cancel
+                        </button>
+                    </div>
+                </form>
+                
+                <!-- Upload Progress -->
+                <div id="upload-progress" class="mt-4 hidden">
+                    <div class="bg-gray-200 rounded-full h-2">
+                        <div id="progress-bar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                    <p id="progress-text" class="text-sm text-gray-600 mt-1">Uploading...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success/Error Messages -->
+    <div id="message-container" class="mb-4"></div>
+
+    <!-- Search and Filter Bar -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+        <div class="flex flex-col md:flex-row gap-4">
+            <div class="flex-1">
+                <input type="text" 
+                       id="search-input" 
+                       placeholder="Search by patent number..." 
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            </div>
+            <button id="search-btn" 
+                    class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                <i class="fas fa-search mr-2"></i>Search
+            </button>
+            <button id="clear-search" 
+                    class="bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600 transition-colors">
+                <i class="fas fa-times mr-2"></i>Clear
+            </button>
+        </div>
     </div>
 
     <!-- Documents Grid -->
@@ -30,34 +132,248 @@
     <div id="empty-state" class="text-center py-12 hidden">
         <i class="fas fa-file-pdf text-6xl text-gray-300 mb-4"></i>
         <h3 class="text-xl font-semibold text-gray-700 mb-2">No Documents Found</h3>
-        <p class="text-gray-600">No patent documents available.</p>
+        <p class="text-gray-600 mb-4">No patent documents available. Upload your first document to get started!</p>
+        <button onclick="document.getElementById('upload-btn').click()" 
+                class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors">
+            <i class="fas fa-upload mr-2"></i>Upload Your First Document
+        </button>
     </div>
 </div>
 
 <script>
 let currentPage = 1;
+let currentSearch = '';
+
+// Document Upload Handler
+class DocumentUploader {
+    constructor() {
+        this.uploadBtn = document.getElementById('upload-btn');
+        this.uploadModal = document.getElementById('upload-modal');
+        this.closeModal = document.getElementById('close-modal');
+        this.cancelBtn = document.getElementById('cancel-btn');
+        this.uploadForm = document.getElementById('upload-form');
+        this.submitBtn = document.getElementById('submit-btn');
+        this.submitText = document.getElementById('submit-text');
+        this.submitSpinner = document.getElementById('submit-spinner');
+        this.uploadProgress = document.getElementById('upload-progress');
+        this.progressBar = document.getElementById('progress-bar');
+        this.progressText = document.getElementById('progress-text');
+        this.messageContainer = document.getElementById('message-container');
+        
+        this.initEventListeners();
+    }
+    
+    initEventListeners() {
+        this.uploadBtn.addEventListener('click', () => this.openModal());
+        this.closeModal.addEventListener('click', () => this.closeModalHandler());
+        this.cancelBtn.addEventListener('click', () => this.closeModalHandler());
+        this.uploadForm.addEventListener('submit', (e) => this.handleSubmit(e));
+        
+        // Close modal when clicking outside
+        this.uploadModal.addEventListener('click', (e) => {
+            if (e.target === this.uploadModal) {
+                this.closeModalHandler();
+            }
+        });
+    }
+    
+    openModal() {
+        this.uploadModal.classList.remove('hidden');
+        this.resetForm();
+    }
+    
+    closeModalHandler() {
+        this.uploadModal.classList.add('hidden');
+        this.resetForm();
+    }
+    
+    resetForm() {
+        this.uploadForm.reset();
+        this.hideProgress();
+        this.hideMessage();
+        this.setSubmitState(false);
+    }
+    
+    async handleSubmit(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this.uploadForm);
+        const patentNumber = formData.get('patentNumber');
+        const file = formData.get('documentPath');
+        
+        // Validation
+        if (!patentNumber.trim()) {
+            this.showMessage('Patent number is required', 'error');
+            return;
+        }
+        
+        if (!file || file.size === 0) {
+            this.showMessage('Please select a PDF file', 'error');
+            return;
+        }
+        
+        if (file.type !== 'application/pdf') {
+            this.showMessage('Only PDF files are allowed', 'error');
+            return;
+        }
+        
+        await this.uploadDocument(formData);
+    }
+    
+    async uploadDocument(formData) {
+        this.setSubmitState(true);
+        this.showProgress();
+        
+        try {
+            const response = await fetch('/documents/api/upload/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': this.getCsrfToken()
+                },
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok && data.success) {
+                this.showMessage('Document uploaded successfully!', 'success');
+                this.closeModalHandler();
+                // Reload documents to show the new upload
+                loadDocuments(1);
+            } else {
+                const errorMsg = data.errors ? this.formatErrors(data.errors) : data.error || 'Upload failed';
+                this.showMessage(errorMsg, 'error');
+            }
+        } catch (error) {
+            console.error('Upload error:', error);
+            this.showMessage('Network error. Please try again.', 'error');
+        } finally {
+            this.setSubmitState(false);
+            this.hideProgress();
+        }
+    }
+    
+    setSubmitState(isLoading) {
+        this.submitBtn.disabled = isLoading;
+        if (isLoading) {
+            this.submitText.textContent = 'Uploading...';
+            this.submitSpinner.classList.remove('hidden');
+        } else {
+            this.submitText.textContent = 'Upload Document';
+            this.submitSpinner.classList.add('hidden');
+        }
+    }
+    
+    showProgress() {
+        this.uploadProgress.classList.remove('hidden');
+        this.progressBar.style.width = '30%';
+        setTimeout(() => {
+            this.progressBar.style.width = '70%';
+        }, 500);
+    }
+    
+    hideProgress() {
+        this.uploadProgress.classList.add('hidden');
+        this.progressBar.style.width = '0%';
+    }
+    
+    showMessage(message, type) {
+        const bgColor = type === 'success' ? 'bg-green-100 border-green-400 text-green-700' : 'bg-red-100 border-red-400 text-red-700';
+        const icon = type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-circle';
+        
+        this.messageContainer.innerHTML = `
+            <div class="border px-4 py-3 rounded-lg ${bgColor}">
+                <div class="flex items-center">
+                    <i class="${icon} mr-2"></i>
+                    <span>${message}</span>
+                </div>
+            </div>
+        `;
+        
+        // Auto-hide success messages after 5 seconds
+        if (type === 'success') {
+            setTimeout(() => {
+                this.hideMessage();
+            }, 5000);
+        }
+    }
+    
+    hideMessage() {
+        this.messageContainer.innerHTML = '';
+    }
+    
+    formatErrors(errors) {
+        const errorMessages = [];
+        for (const [field, messages] of Object.entries(errors)) {
+            errorMessages.push(`${field}: ${messages.join(', ')}`);
+        }
+        return errorMessages.join('; ');
+    }
+    
+    getCsrfToken() {
+        return document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+    }
+}
+
+// Search functionality
+function initializeSearch() {
+    const searchInput = document.getElementById('search-input');
+    const searchBtn = document.getElementById('search-btn');
+    const clearSearchBtn = document.getElementById('clear-search');
+    
+    // Search on button click
+    searchBtn.addEventListener('click', () => {
+        currentSearch = searchInput.value.trim();
+        currentPage = 1;
+        loadDocuments(currentPage, currentSearch);
+    });
+    
+    // Search on Enter key
+    searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            currentSearch = searchInput.value.trim();
+            currentPage = 1;
+            loadDocuments(currentPage, currentSearch);
+        }
+    });
+    
+    // Clear search
+    clearSearchBtn.addEventListener('click', () => {
+        searchInput.value = '';
+        currentSearch = '';
+        currentPage = 1;
+        loadDocuments(currentPage);
+    });
+}
 
 // Load documents when page loads
 document.addEventListener('DOMContentLoaded', function() {
     loadDocuments();
+    new DocumentUploader(); // Initialize the uploader
+    initializeSearch(); // Initialize search functionality
 });
 
-async function loadDocuments(page = 1) {
+async function loadDocuments(page = 1, search = '') {
     const container = document.getElementById('documents-container');
     const loadingState = document.getElementById('loading-state');
     const emptyState = document.getElementById('empty-state');
     const paginationContainer = document.getElementById('pagination-container');
+    const statsBar = document.getElementById('stats-bar');
     
     // Show loading
     loadingState.classList.remove('hidden');
     container.innerHTML = '';
     emptyState.classList.add('hidden');
     paginationContainer.innerHTML = '';
+    statsBar.classList.add('hidden');
     
     try {
         const url = new URL('/documents/api/', window.location.origin);
         url.searchParams.append('page', page);
         url.searchParams.append('page_size', '9');
+        if (search) {
+            url.searchParams.append('search', search);
+        }
         
         const response = await fetch(url);
         const data = await response.json();
@@ -65,12 +381,23 @@ async function loadDocuments(page = 1) {
         if (response.ok && data.documents && data.documents.length > 0) {
             renderDocuments(data.documents);
             renderPagination(data.pagination);
+            updateStats(data.pagination);
+            currentPage = page;
         } else {
             emptyState.classList.remove('hidden');
         }
     } catch (error) {
         console.error('Error loading documents:', error);
-        container.innerHTML = '<div class="col-span-3 text-center text-red-600">Error loading documents</div>';
+        container.innerHTML = `
+            <div class="col-span-3 bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg text-center">
+                <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
+                <p class="font-semibold">Error loading documents</p>
+                <p class="text-sm mt-1">${error.message}</p>
+                <button onclick="loadDocuments()" class="mt-3 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
+                    Try Again
+                </button>
+            </div>
+        `;
     } finally {
         loadingState.classList.add('hidden');
     }
@@ -79,25 +406,71 @@ async function loadDocuments(page = 1) {
 function renderDocuments(documents) {
     const container = document.getElementById('documents-container');
     container.innerHTML = documents.map(doc => `
-        <div class="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+            <!-- Document Header -->
+            <div class="p-6 border-b border-gray-100">
+                <div class="flex items-start justify-between mb-3">
+                    <div class="flex items-center">
+                        <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mr-3">
+                            <i class="fas fa-file-pdf text-red-500 text-xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-gray-900 text-lg truncate">${doc.patentNumber}</h3>
+                            <p class="text-sm text-gray-500">Document ID: ${doc.docid}</p>
+                        </div>
+                    </div>
+                    <span class="bg-green-100 text-green-800 text-xs font-semibold px-2 py-1 rounded-full">
+                        Active
+                    </span>
+                </div>
+            </div>
+            
+            <!-- Document Details -->
             <div class="p-6">
-                <div class="flex items-center mb-4">
-                    <i class="fas fa-file-pdf text-red-500 text-2xl mr-3"></i>
-                    <div class="flex-1">
-                        <h3 class="font-semibold text-gray-900 truncate">${doc.patentNumber}</h3>
-                        <p class="text-sm text-gray-500">Doc ID: ${doc.docid}</p>
+                <div class="space-y-3 mb-6">
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-600">Uploaded:</span>
+                        <span class="font-medium text-gray-900">${new Date(doc.uploadTime).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        })}</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-600">File Type:</span>
+                        <span class="font-medium text-gray-900">PDF Document</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-600">Status:</span>
+                        <span class="text-green-600 font-medium">
+                            <i class="fas fa-check-circle mr-1"></i>Ready
+                        </span>
                     </div>
                 </div>
                 
-                <div class="text-sm text-gray-600 mb-4">
-                    <p><strong>Uploaded:</strong> ${new Date(doc.uploadTime).toLocaleDateString()}</p>
-                </div>
-                
-                <div class="flex justify-center">
+                <!-- Action Buttons -->
+                <div class="flex gap-2">
                     <a href="/documents/viewer/${doc.docid}/" 
-                       class="bg-blue-600 text-white py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors text-sm">
+                       class="flex-1 bg-blue-600 text-white py-2.5 px-4 rounded-lg hover:bg-blue-700 transition-colors text-center text-sm font-medium">
                         <i class="fas fa-eye mr-2"></i>View Details
                     </a>
+                    <button onclick="downloadDocument('${doc.documentPath}')" 
+                            class="bg-gray-100 text-gray-700 py-2.5 px-4 rounded-lg hover:bg-gray-200 transition-colors">
+                        <i class="fas fa-download"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Document Preview -->
+            <div class="px-6 pb-6">
+                <div class="bg-gray-50 rounded-lg p-4 border-2 border-dashed border-gray-200">
+                    <div class="text-center">
+                        <i class="fas fa-file-pdf text-gray-400 text-2xl mb-2"></i>
+                        <p class="text-sm text-gray-600">PDF Document</p>
+                        <p class="text-xs text-gray-500 mt-1">Click "View Details" to open in PDF viewer</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -108,29 +481,104 @@ function renderPagination(pagination) {
     const container = document.getElementById('pagination-container');
     if (pagination.total_pages <= 1) return;
     
-    let paginationHTML = '<div class="flex space-x-2">';
+    let paginationHTML = '<div class="flex items-center space-x-2">';
     
     // Previous button
     if (pagination.has_previous) {
-        paginationHTML += `<button onclick="loadDocuments(${pagination.current_page - 1})" 
-                          class="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">Previous</button>`;
+        paginationHTML += `
+            <button onclick="loadDocuments(${pagination.current_page - 1}, '${currentSearch}')" 
+                    class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center">
+                <i class="fas fa-chevron-left mr-2"></i>Previous
+            </button>`;
     }
     
     // Page numbers
-    for (let i = 1; i <= pagination.total_pages; i++) {
+    const startPage = Math.max(1, pagination.current_page - 2);
+    const endPage = Math.min(pagination.total_pages, pagination.current_page + 2);
+    
+    if (startPage > 1) {
+        paginationHTML += `<button onclick="loadDocuments(1, '${currentSearch}')" 
+                          class="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">1</button>`;
+        if (startPage > 2) {
+            paginationHTML += `<span class="px-2 text-gray-500">...</span>`;
+        }
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
         const isActive = i === pagination.current_page;
-        paginationHTML += `<button onclick="loadDocuments(${i})" 
-                          class="px-3 py-2 border rounded-lg ${isActive ? 'bg-blue-600 text-white' : 'border-gray-300 hover:bg-gray-50'}">${i}</button>`;
+        paginationHTML += `
+            <button onclick="loadDocuments(${i}, '${currentSearch}')" 
+                    class="px-3 py-2 border rounded-lg transition-colors ${isActive ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 hover:bg-gray-50'}">${i}</button>`;
+    }
+    
+    if (endPage < pagination.total_pages) {
+        if (endPage < pagination.total_pages - 1) {
+            paginationHTML += `<span class="px-2 text-gray-500">...</span>`;
+        }
+        paginationHTML += `<button onclick="loadDocuments(${pagination.total_pages}, '${currentSearch}')" 
+                          class="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">${pagination.total_pages}</button>`;
     }
     
     // Next button
     if (pagination.has_next) {
-        paginationHTML += `<button onclick="loadDocuments(${pagination.current_page + 1})" 
-                          class="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">Next</button>`;
+        paginationHTML += `
+            <button onclick="loadDocuments(${pagination.current_page + 1}, '${currentSearch}')" 
+                    class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center">
+                Next<i class="fas fa-chevron-right ml-2"></i>
+            </button>`;
     }
     
     paginationHTML += '</div>';
     container.innerHTML = paginationHTML;
 }
+
+function updateStats(pagination) {
+    const statsBar = document.getElementById('stats-bar');
+    const totalCount = document.getElementById('total-count');
+    const currentPageSpan = document.getElementById('current-page');
+    const totalPagesSpan = document.getElementById('total-pages');
+    
+    totalCount.textContent = pagination.total_documents;
+    currentPageSpan.textContent = pagination.current_page;
+    totalPagesSpan.textContent = pagination.total_pages;
+    
+    statsBar.classList.remove('hidden');
+}
+
+function downloadDocument(documentPath) {
+    // Create a temporary link to download the document
+    const link = document.createElement('a');
+    link.href = documentPath;
+    link.download = documentPath.split('/').pop();
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
 </script>
+
+<style>
+/* Custom animations */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* Hover effects */
+.hover-scale:hover {
+    transform: scale(1.02);
+}
+
+/* Loading spinner */
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.fa-spin {
+    animation: spin 1s linear infinite;
+}
+</style>
 {% endblock %}
