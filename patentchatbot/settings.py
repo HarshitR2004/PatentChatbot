@@ -152,3 +152,9 @@ MEDIA_ROOT = BASE_DIR / 'media'
 X_FRAME_OPTIONS = 'ALLOWALL'
 
 APPEND_SLASH=False
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+    ],
+}

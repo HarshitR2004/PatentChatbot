@@ -4,7 +4,6 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.authtoken.models import Token
-from django.contrib.auth import authenticate
 from .serializers import RegisterSerializer, UserSerializer, LoginSerializer
 from .models import Users
 
@@ -17,9 +16,6 @@ def register_view(request):
     """Render the registration page"""
     return render(request, 'users/registration.html')
 
-def dashboard_view(request):
-    """Render the dashboard page"""
-    return render(request, 'users/dashboard.html')
 
 # API endpoints
 @api_view(['POST'])
@@ -27,7 +23,7 @@ def dashboard_view(request):
 def login_api(request):
     """Handle user login via API"""
     try:
-        print("Login request data:", request.data)  # Debug print
+        print("Login request data:", request.data)
         
         email = request.data.get('email')
         password = request.data.get('password')

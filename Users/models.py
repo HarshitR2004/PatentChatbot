@@ -31,9 +31,9 @@ class Users(AbstractBaseUser):
     userID = models.AutoField(primary_key=True, db_column='userID')
     username = models.CharField(max_length=150, unique=True, db_column='username')
     email = models.EmailField(unique=True, db_column='email')
-    is_active = models.BooleanField(default=True)  # Required for authentication
-    is_staff = models.BooleanField(default=False)  # Required for admin access
-    is_superuser = models.BooleanField(default=False)  # Required for admin access
+    is_active = models.BooleanField(default=True)
+    is_staff = models.BooleanField(default=False)  
+    is_superuser = models.BooleanField(default=False)  
 
     objects = UsersManager()
 

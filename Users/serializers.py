@@ -5,7 +5,7 @@ from Users.models import Users
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = Users
-        fields = ['userID', 'username', 'email']  # Only the fields you actually have
+        fields = ['userID', 'username', 'email'] 
 
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
@@ -16,7 +16,6 @@ class LoginSerializer(serializers.Serializer):
         password = data.get('password')
         
         if email and password:
-            # Since you're using a custom user model, find user by email
             try:
                 user = Users.objects.get(email=email)
                 if user.check_password(password):

@@ -6,6 +6,8 @@ from rest_framework import status
 from Users.models import Users
 from usersession.models import userSession
 from chat.models import Chat
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import render
 import json
 import time
 import ollama
@@ -241,7 +243,13 @@ class SessionChatsAPIView(APIView):
             return Response({'error': 'Session not found'}, status=status.HTTP_404_NOT_FOUND)
 
 
-
+def chat_page(request):
+    """
+    Render the chat page template.
+    """
+    return render(request, 'chat/chat.html', {
+        'user': request.user
+    })
 
 
 

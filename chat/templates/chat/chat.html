@@ -5,11 +5,12 @@
 {% block content %}
 <div class="flex flex-col max-w-4xl mx-auto h-[80vh] border border-[#f0f2f4] rounded-xl shadow-sm overflow-hidden">
 
-  <!-- Header with Mode Toggle -->
+  <!-- Header with Mode Toggle and Logout Button -->
   <div class="bg-[#1466b8] text-white px-6 py-4">
     <div class="flex justify-between items-center">
       <h1 class="text-lg font-semibold">PatentBot Chat</h1>
       <div class="flex items-center space-x-4">
+        <!-- Mode Selection -->
         <div class="flex items-center space-x-2">
           <label class="text-sm font-medium">Mode:</label>
           <select id="chat-mode" class="bg-white text-black px-3 py-1 rounded text-sm">
@@ -17,9 +18,22 @@
             <option value="normal">Normal Mode</option>
           </select>
         </div>
+        
+        <!-- Session Info -->
         <div id="session-info" class="text-sm bg-blue-700 px-3 py-1 rounded hidden">
           Session: <span id="session-id">-</span>
         </div>
+        
+        <!-- Logout Button -->
+        <button id="logout-btn" 
+                class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors duration-200 flex items-center space-x-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1">
+            </path>
+          </svg>
+          <span>Logout</span>
+        </button>
       </div>
     </div>
   </div>
@@ -118,6 +132,9 @@ class PatentChatBot {
     document.getElementById('chat-form').addEventListener('submit', (e) => this.handleSend(e));
     this.chatMode.addEventListener('change', () => this.handleModeChange());
     
+    // Initialize logout functionality
+    this.initLogout();
+    
     // Focus input on load
     this.chatInput.focus();
     
@@ -128,6 +145,102 @@ class PatentChatBot {
         document.getElementById('chat-form').dispatchEvent(new Event('submit'));
       }
     });
+  }
+
+  initLogout() {
+    document.getElementById('logout-btn').addEventListener('click', () => {
+      this.handleLogout();
+    });
+  }
+
+  async handleLogout() {
+    try {
+      // Check multiple token storage keys that might be used
+      const token = localStorage.getItem('authToken') || 
+                   localStorage.getItem('userToken') || 
+                   localStorage.getItem('token');
+
+      if (!token) {
+        console.log('No token found, redirecting to login...');
+        this.clearUserData();
+        window.location.href = '/users/login/';
+        return;
+      }
+
+      console.log('Attempting logout with token:', token.substring(0, 10) + '...');
+
+      const response = await fetch('/users/api/logout/', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Token ' + token,
+          'Content-Type': 'application/json',
+          'X-CSRFToken': this.getCsrfToken()
+        }
+      });
+      console.log('Logout response status:', response.status);
+      console.log('Logout response headers:', response.headers.get('Content-Type'));
+      if (response.ok) {
+        console.log('Logout successful');
+        this.clearUserData();
+        
+        // Show success message briefly before redirect
+        this.showLogoutMessage('Logged out successfully! Redirecting...', 'success');
+        
+        setTimeout(() => {
+          window.location.href = '/users/login/';
+        }, 1500);
+      } else {
+        console.error('Logout failed with status:', response.status);
+        const errorData = await response.json().catch(() => ({}));
+        this.showLogoutMessage('Logout failed: ' + (errorData.message || 'Unknown error'), 'error');
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+      this.showLogoutMessage('Logout error: ' + error.message, 'error');
+      
+      // Even if API fails, clear local data and redirect
+      setTimeout(() => {
+        this.clearUserData();
+        window.location.href = '/users/login/';
+      }, 2000);
+    }
+  }
+
+  clearUserData() {
+    // Clear all possible token storage keys
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userToken');
+    localStorage.removeItem('token');
+    localStorage.removeItem('userEmail');
+    localStorage.removeItem('userName');
+    localStorage.removeItem('userID');
+    localStorage.removeItem('isAdmin');
+    localStorage.removeItem('userData');
+    
+    console.log('User data cleared from localStorage');
+  }
+
+  showLogoutMessage(message, type) {
+    // Create a temporary message overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg';
+    overlay.style.backgroundColor = type === 'success' ? '#10b981' : '#ef4444';
+    overlay.style.color = 'white';
+    overlay.innerHTML = `
+      <div class="flex items-center space-x-2">
+        <span>${type === 'success' ? '✓' : '⚠️'}</span>
+        <span>${message}</span>
+      </div>
+    `;
+    
+    document.body.appendChild(overlay);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+      if (overlay.parentNode) {
+        overlay.parentNode.removeChild(overlay);
+      }
+    }, 3000);
   }
 
   handleModeChange() {
@@ -228,7 +341,6 @@ class PatentChatBot {
       });
 
       if (!response.ok) {
-        // For streaming responses, don't try to parse as JSON
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
           const errorData = await response.json();
@@ -288,9 +400,8 @@ class PatentChatBot {
                     this.currentBotMessage.innerHTML = accumulatedText + '<span class="streaming-cursor animate-pulse">|</span>';
                     this.scrollToBottom();
                     
-                    // Update progress
                     if (data.token_count) {
-                      const estimatedTotal = Math.max(data.token_count * 2, 50); // Rough estimation
+                      const estimatedTotal = Math.max(data.token_count * 2, 50);
                       const progress = Math.min((data.token_count / estimatedTotal) * 100, 95);
                       this.progressBar.style.width = `${progress}%`;
                       this.progressText.textContent = `Generated ${data.token_count} tokens...`;
@@ -306,7 +417,6 @@ class PatentChatBot {
                   this.progressBar.style.width = '100%';
                   this.progressText.textContent = 'Complete!';
                   
-                  // Hide progress after a delay
                   setTimeout(() => {
                     this.progressContainer.classList.add('hidden');
                     this.progressBar.style.width = '0%';

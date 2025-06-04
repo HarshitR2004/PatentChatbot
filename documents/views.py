@@ -2,12 +2,16 @@ from django.shortcuts import get_object_or_404, render
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.views import APIView
-from rest_framework.decorators import api_view, parser_classes
+from rest_framework.decorators import api_view, parser_classes, permission_classes
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.core.paginator import Paginator
 from .models import Documents
 from .serializers import DocumentSerializer, DocumentUploadSerializer
+from rest_framework.permissions import BasePermission, IsAdminUser
 import os
+
+
 
 class DocumentListAPIView(APIView):
     """
@@ -20,8 +24,8 @@ class DocumentListAPIView(APIView):
             documents = Documents.objects.all().order_by('-uploadTime')
             
             # Pagination
-            page = request.GET.get('page', 1)
-            page_size = request.GET.get('page_size', 10)
+            page = int(request.GET.get('page', 1))
+            page_size = int(request.GET.get('page_size', 10))
             
             paginator = Paginator(documents, page_size)
             page_obj = paginator.get_page(page)
@@ -48,10 +52,13 @@ class DocumentListAPIView(APIView):
                 'error': f'Failed to retrieve documents: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+@permission_classes([IsAdminUser])
+@api_view(['GET'])
 def document_list(request):
     """Render document list page"""
     return render(request, 'documents/document_list.html')
 
+@permission_classes([IsAdminUser])
 def document_viewer(request, docid):
     """Render document details and PDF viewer"""
     document = get_object_or_404(Documents, docid=docid)
@@ -59,30 +66,32 @@ def document_viewer(request, docid):
         'document': document
     })
 
+@csrf_exempt
 @api_view(['POST'])
 @parser_classes([MultiPartParser, FormParser])
 def document_upload(request):
     """Handle document upload via API"""
-    try:
-        serializer = DocumentUploadSerializer(data=request.data)
-        if serializer.is_valid():
-            document = serializer.save()
+    serializer = DocumentUploadSerializer(data=request.data)
+    if serializer.is_valid():
+            try:
+                document = serializer.save()
+            except Exception as e:
+                return Response({
+                    'success': False,
+                    'error': f'Error saving document: {str(e)}'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
             response_serializer = DocumentSerializer(document)
             return Response({
                 'success': True,
                 'message': 'Document uploaded successfully',
                 'document': response_serializer.data
             }, status=status.HTTP_201_CREATED)
-        else:
-            return Response({
-                'success': False,
-                'errors': serializer.errors
-            }, status=status.HTTP_400_BAD_REQUEST)
-    except Exception as e:
-        return Response({
+
+    return Response({
             'success': False,
-            'error': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
         
 @api_view(['DELETE'])
 def document_delete(request, docid):

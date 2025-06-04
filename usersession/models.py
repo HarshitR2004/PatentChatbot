@@ -7,7 +7,6 @@ class userSession(models.Model):
     session_id = models.AutoField(primary_key=True)
     created_at = models.DateTimeField(default=timezone.now, editable=False)
     ended_at = models.DateTimeField(blank=True, null=True)  
-    # Use settings.AUTH_USER_MODEL instead of direct import
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, 
         on_delete=models.CASCADE, 
