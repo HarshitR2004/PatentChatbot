@@ -89,6 +89,40 @@
         </div>
     </div>
 
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg max-w-md w-full p-6">
+                <div class="flex items-center mb-4">
+                    <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mr-4">
+                        <i class="fas fa-exclamation-triangle text-red-600 text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900">Delete Document</h3>
+                        <p class="text-sm text-gray-600">This action cannot be undone</p>
+                    </div>
+                </div>
+                
+                <div class="mb-6">
+                    <p class="text-gray-700">Are you sure you want to delete the document:</p>
+                    <p class="font-semibold text-gray-900 mt-1" id="delete-document-name">-</p>
+                </div>
+                
+                <div class="flex gap-3">
+                    <button id="confirm-delete-btn"
+                            class="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors">
+                        <span id="delete-text">Delete Document</span>
+                        <i id="delete-spinner" class="fas fa-spinner fa-spin ml-2 hidden"></i>
+                    </button>
+                    <button id="cancel-delete-btn"
+                            class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Success/Error Messages -->
     <div id="message-container" class="mb-4"></div>
 
@@ -143,6 +177,7 @@
 <script>
 let currentPage = 1;
 let currentSearch = '';
+let documentToDelete = null;
 
 // Document Upload Handler
 class DocumentUploader {
@@ -203,17 +238,17 @@ class DocumentUploader {
         
         // Validation
         if (!patentNumber.trim()) {
-            this.showMessage('Patent number is required', 'error');
+            showMessage('Patent number is required', 'error');
             return;
         }
         
         if (!file || file.size === 0) {
-            this.showMessage('Please select a PDF file', 'error');
+            showMessage('Please select a PDF file', 'error');
             return;
         }
         
         if (file.type !== 'application/pdf') {
-            this.showMessage('Only PDF files are allowed', 'error');
+            showMessage('Only PDF files are allowed', 'error');
             return;
         }
         
@@ -228,7 +263,7 @@ class DocumentUploader {
             const response = await fetch('/documents/api/upload/', {
                 method: 'POST',
                 headers: {
-                    'X-CSRFToken': this.getCsrfToken()
+                    'X-CSRFToken': getCsrfToken()
                 },
                 body: formData
             });
@@ -236,17 +271,18 @@ class DocumentUploader {
             const data = await response.json();
             
             if (response.ok && data.success) {
-                this.showMessage('Document uploaded successfully!', 'success');
+                showMessage('Document uploaded successfully!', 'success');
                 this.closeModalHandler();
-                // Reload documents to show the new upload
-                loadDocuments(1);
+                // Smooth refresh - go to first page and reload
+                currentPage = 1;
+                await loadDocuments(1, currentSearch);
             } else {
-                const errorMsg = data.errors ? this.formatErrors(data.errors) : data.error || 'Upload failed';
-                this.showMessage(errorMsg, 'error');
+                const errorMsg = data.errors ? formatErrors(data.errors) : data.error || 'Upload failed';
+                showMessage(errorMsg, 'error');
             }
         } catch (error) {
             console.error('Upload error:', error);
-            this.showMessage('Network error. Please try again.', 'error');
+            showMessage('Network error. Please try again.', 'error');
         } finally {
             this.setSubmitState(false);
             this.hideProgress();
@@ -277,41 +313,127 @@ class DocumentUploader {
         this.progressBar.style.width = '0%';
     }
     
-    showMessage(message, type) {
-        const bgColor = type === 'success' ? 'bg-green-100 border-green-400 text-green-700' : 'bg-red-100 border-red-400 text-red-700';
-        const icon = type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-circle';
-        
-        this.messageContainer.innerHTML = `
-            <div class="border px-4 py-3 rounded-lg ${bgColor}">
-                <div class="flex items-center">
-                    <i class="${icon} mr-2"></i>
-                    <span>${message}</span>
-                </div>
-            </div>
-        `;
-        
-        // Auto-hide success messages after 5 seconds
-        if (type === 'success') {
-            setTimeout(() => {
-                this.hideMessage();
-            }, 5000);
-        }
-    }
-    
     hideMessage() {
         this.messageContainer.innerHTML = '';
     }
-    
-    formatErrors(errors) {
-        const errorMessages = [];
-        for (const [field, messages] of Object.entries(errors)) {
-            errorMessages.push(`${field}: ${messages.join(', ')}`);
-        }
-        return errorMessages.join('; ');
+}
+
+// Document Delete Handler
+class DocumentDeleter {
+    constructor() {
+        this.deleteModal = document.getElementById('delete-modal');
+        this.confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+        this.cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+        this.deleteText = document.getElementById('delete-text');
+        this.deleteSpinner = document.getElementById('delete-spinner');
+        this.deleteDocumentName = document.getElementById('delete-document-name');
+        
+        this.initEventListeners();
     }
     
-    getCsrfToken() {
-        return document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+    initEventListeners() {
+        this.confirmDeleteBtn.addEventListener('click', () => this.confirmDelete());
+        this.cancelDeleteBtn.addEventListener('click', () => this.closeModal());
+        
+        // Close modal when clicking outside
+        this.deleteModal.addEventListener('click', (e) => {
+            if (e.target === this.deleteModal) {
+                this.closeModal();
+            }
+        });
+    }
+    
+    openModal(docid, patentNumber) {
+        documentToDelete = { docid, patentNumber };
+        this.deleteDocumentName.textContent = patentNumber;
+        this.deleteModal.classList.remove('hidden');
+    }
+    
+    closeModal() {
+        this.deleteModal.classList.add('hidden');
+        documentToDelete = null;
+        this.setDeleteState(false);
+    }
+    
+    async confirmDelete() {
+        if (!documentToDelete) return;
+        
+        this.setDeleteState(true);
+        
+        try {
+            // Add visual feedback - fade out the document card being deleted
+            const documentCard = document.querySelector(`[data-docid="${documentToDelete.docid}"]`);
+            if (documentCard) {
+                documentCard.style.opacity = '0.5';
+                documentCard.style.pointerEvents = 'none';
+            }
+            
+            const response = await fetch(`/documents/api/delete/${documentToDelete.docid}/`, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRFToken': getCsrfToken()
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok && data.success) {
+                showMessage(data.message, 'success');
+                this.closeModal();
+                
+                // Smooth deletion with animation
+                if (documentCard) {
+                    documentCard.style.transform = 'scale(0.8)';
+                    documentCard.style.transition = 'all 0.3s ease-out';
+                    
+                    setTimeout(async () => {
+                        // Check if we need to go to previous page (if current page becomes empty)
+                        const container = document.getElementById('documents-container');
+                        const remainingCards = container.querySelectorAll('[data-docid]').length;
+                        
+                        if (remainingCards <= 1 && currentPage > 1) {
+                            // Go to previous page if current page will be empty
+                            currentPage = currentPage - 1;
+                        }
+                        
+                        // Reload documents with smooth transition
+                        await loadDocuments(currentPage, currentSearch);
+                    }, 300);
+                } else {
+                    // Fallback if card not found
+                    await loadDocuments(currentPage, currentSearch);
+                }
+            } else {
+                showMessage(data.error || 'Delete failed', 'error');
+                // Restore the card appearance on error
+                if (documentCard) {
+                    documentCard.style.opacity = '1';
+                    documentCard.style.pointerEvents = 'auto';
+                }
+            }
+        } catch (error) {
+            console.error('Delete error:', error);
+            showMessage('Network error. Please try again.', 'error');
+            // Restore the card appearance on error
+            const documentCard = document.querySelector(`[data-docid="${documentToDelete.docid}"]`);
+            if (documentCard) {
+                documentCard.style.opacity = '1';
+                documentCard.style.pointerEvents = 'auto';
+            }
+        } finally {
+            this.setDeleteState(false);
+        }
+    }
+    
+    setDeleteState(isDeleting) {
+        this.confirmDeleteBtn.disabled = isDeleting;
+        if (isDeleting) {
+            this.deleteText.textContent = 'Deleting...';
+            this.deleteSpinner.classList.remove('hidden');
+        } else {
+            this.deleteText.textContent = 'Delete Document';
+            this.deleteSpinner.classList.add('hidden');
+        }
     }
 }
 
@@ -346,10 +468,14 @@ function initializeSearch() {
     });
 }
 
+// Initialize delete functionality
+let documentDeleter;
+
 // Load documents when page loads
 document.addEventListener('DOMContentLoaded', function() {
     loadDocuments();
     new DocumentUploader(); // Initialize the uploader
+    documentDeleter = new DocumentDeleter(); // Initialize the deleter
     initializeSearch(); // Initialize search functionality
 });
 
@@ -406,22 +532,17 @@ async function loadDocuments(page = 1, search = '') {
 function renderDocuments(documents) {
     const container = document.getElementById('documents-container');
     container.innerHTML = documents.map(doc => `
-        <div class="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+        <div data-docid="${doc.docid}" class="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 animate-fade-in">
             <!-- Document Header -->
             <div class="p-6 border-b border-gray-100">
-                <div class="flex items-start justify-between mb-3">
-                    <div class="flex items-center">
-                        <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mr-3">
-                            <i class="fas fa-file-pdf text-red-500 text-xl"></i>
-                        </div>
-                        <div>
-                            <h3 class="font-bold text-gray-900 text-lg truncate">${doc.patentNumber}</h3>
-                            <p class="text-sm text-gray-500">Document ID: ${doc.docid}</p>
-                        </div>
+                <div class="flex items-center mb-3">
+                    <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mr-3">
+                        <i class="fas fa-file-pdf text-red-500 text-xl"></i>
                     </div>
-                    <span class="bg-green-100 text-green-800 text-xs font-semibold px-2 py-1 rounded-full">
-                        Active
-                    </span>
+                    <div class="flex-1">
+                        <h3 class="font-bold text-gray-900 text-lg truncate">${doc.patentNumber}</h3>
+                        <p class="text-sm text-gray-500">Document ID: ${doc.docid}</p>
+                    </div>
                 </div>
             </div>
             
@@ -442,12 +563,6 @@ function renderDocuments(documents) {
                         <span class="text-gray-600">File Type:</span>
                         <span class="font-medium text-gray-900">PDF Document</span>
                     </div>
-                    <div class="flex justify-between text-sm">
-                        <span class="text-gray-600">Status:</span>
-                        <span class="text-green-600 font-medium">
-                            <i class="fas fa-check-circle mr-1"></i>Ready
-                        </span>
-                    </div>
                 </div>
                 
                 <!-- Action Buttons -->
@@ -456,9 +571,10 @@ function renderDocuments(documents) {
                        class="flex-1 bg-blue-600 text-white py-2.5 px-4 rounded-lg hover:bg-blue-700 transition-colors text-center text-sm font-medium">
                         <i class="fas fa-eye mr-2"></i>View Details
                     </a>
-                    <button onclick="downloadDocument('${doc.documentPath}')" 
-                            class="bg-gray-100 text-gray-700 py-2.5 px-4 rounded-lg hover:bg-gray-200 transition-colors">
-                        <i class="fas fa-download"></i>
+                    <button onclick="deleteDocument(${doc.docid}, '${doc.patentNumber}')" 
+                            class="bg-red-100 text-red-700 py-2.5 px-4 rounded-lg hover:bg-red-200 transition-colors"
+                            title="Delete Document">
+                        <i class="fas fa-trash"></i>
                     </button>
                 </div>
             </div>
@@ -545,14 +661,50 @@ function updateStats(pagination) {
     statsBar.classList.remove('hidden');
 }
 
-function downloadDocument(documentPath) {
-    // Create a temporary link to download the document
-    const link = document.createElement('a');
-    link.href = documentPath;
-    link.download = documentPath.split('/').pop();
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+function deleteDocument(docid, patentNumber) {
+    documentDeleter.openModal(docid, patentNumber);
+}
+
+// Utility functions
+function showMessage(message, type) {
+    const messageContainer = document.getElementById('message-container');
+    const bgColor = type === 'success' ? 'bg-green-100 border-green-400 text-green-700' : 'bg-red-100 border-red-400 text-red-700';
+    const icon = type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-circle';
+    
+    messageContainer.innerHTML = `
+        <div class="border px-4 py-3 rounded-lg ${bgColor} animate-fade-in">
+            <div class="flex items-center">
+                <i class="${icon} mr-2"></i>
+                <span>${message}</span>
+            </div>
+        </div>
+    `;
+    
+    // Auto-hide success messages after 5 seconds
+    if (type === 'success') {
+        setTimeout(() => {
+            const messageEl = messageContainer.querySelector('div');
+            if (messageEl) {
+                messageEl.style.opacity = '0';
+                messageEl.style.transform = 'translateY(-10px)';
+                setTimeout(() => {
+                    messageContainer.innerHTML = '';
+                }, 300);
+            }
+        }, 3000);
+    }
+}
+
+function formatErrors(errors) {
+    const errorMessages = [];
+    for (const [field, messages] of Object.entries(errors)) {
+        errorMessages.push(`${field}: ${messages.join(', ')}`);
+    }
+    return errorMessages.join('; ');
+}
+
+function getCsrfToken() {
+    return document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
 }
 </script>
 
@@ -579,6 +731,11 @@ function downloadDocument(documentPath) {
 
 .fa-spin {
     animation: spin 1s linear infinite;
+}
+
+/* Smooth transitions for document cards */
+[data-docid] {
+    transition: all 0.3s ease-out;
 }
 </style>
 {% endblock %}

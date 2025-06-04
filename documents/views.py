@@ -8,7 +8,7 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from django.core.paginator import Paginator
 from .models import Documents
 from .serializers import DocumentSerializer, DocumentUploadSerializer
-import json
+import os
 
 class DocumentListAPIView(APIView):
     """
@@ -84,3 +84,33 @@ def document_upload(request):
             'success': False,
             'error': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+@api_view(['DELETE'])
+def document_delete(request, docid):
+    """Handle document deletion via API"""
+    try:
+        document = get_object_or_404(Documents, docid=docid)
+        document_info = {
+            'docid': document.docid,
+            'patentNumber': document.patentNumber,
+        }
+        if document.documentPath and os.path.isfile(document.documentPath.path):
+            try:
+                os.remove(document.documentPath.path)
+            except Exception as e:
+                return Response({
+                    'success': False,
+                    'error': f'Failed to delete file: {str(e)}'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        document.delete()
+        return Response({
+            'success': True,
+            'message': 'Document deleted successfully',
+            'document': document_info
+        }, status=status.HTTP_200_OK)
+    except Documents.DoesNotExist:
+        return Response({
+            'success': False,
+            'error': 'Document not found'
+        }, status=status.HTTP_404_NOT_FOUND)
+    
