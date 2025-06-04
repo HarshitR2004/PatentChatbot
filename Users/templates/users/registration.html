@@ -8,7 +8,7 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #667eea 0%,rgb(89, 28, 150) 100%);
             min-height: 100vh;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
@@ -89,30 +89,6 @@
                         <div id="alert-container"></div>
                         
                         <form id="registerForm">
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label for="first_name" class="form-label fw-semibold">First Name</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text">
-                                            <i class="fas fa-user text-muted"></i>
-                                        </span>
-                                        <input type="text" class="form-control" id="first_name" name="first_name" 
-                                               placeholder="Enter first name">
-                                    </div>
-                                </div>
-                                
-                                <div class="col-md-6 mb-3">
-                                    <label for="last_name" class="form-label fw-semibold">Last Name</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text">
-                                            <i class="fas fa-user text-muted"></i>
-                                        </span>
-                                        <input type="text" class="form-control" id="last_name" name="last_name" 
-                                               placeholder="Enter last name">
-                                    </div>
-                                </div>
-                            </div>
-                            
                             <div class="mb-3">
                                 <label for="username" class="form-label fw-semibold">Username</label>
                                 <div class="input-group">
@@ -162,14 +138,6 @@
                                         <i class="fas fa-eye"></i>
                                     </button>
                                 </div>
-                            </div>
-                            
-                            <div class="mb-4 form-check">
-                                <input type="checkbox" class="form-check-input" id="agreeTerms" required>
-                                <label class="form-check-label" for="agreeTerms">
-                                    I agree to the <a href="#" class="text-decoration-none">Terms of Service</a> 
-                                    and <a href="#" class="text-decoration-none">Privacy Policy</a>
-                                </label>
                             </div>
                             
                             <button type="submit" class="btn btn-primary w-100 mb-3" id="registerBtn">
@@ -248,13 +216,11 @@
                 username: formData.get('username'),
                 email: formData.get('email'),
                 password: formData.get('password'),
-                password_confirm: formData.get('password_confirm'),
-                first_name: formData.get('first_name'),
-                last_name: formData.get('last_name')
+                password_confirm: formData.get('password_confirm')
             };
             
             try {
-                console.log('Sending registration data:', data); // Debug log
+                console.log('Sending registration data:', data);
                 
                 const response = await fetch('/users/api/register/', {
                     method: 'POST',
@@ -265,21 +231,21 @@
                     body: JSON.stringify(data)
                 });
                 
-                console.log('Response status:', response.status); // Debug log
+                console.log('Response status:', response.status);
                 const result = await response.json();
-                console.log('Response data:', result); // Debug log
+                console.log('Response data:', result);
                 
-                if (response.ok) {
+                if (response.ok && result.token) {
                     // Store token in localStorage
                     localStorage.setItem('authToken', result.token);
                     localStorage.setItem('userData', JSON.stringify(result.user));
                     
                     // Show success message
-                    showAlert('Registration successful! Redirecting to dashboard...', 'success');
+                    showAlert('Registration successful! Redirecting to chat...', 'success');
                     
-                    // Redirect to dashboard
+                    // Redirect to chat
                     setTimeout(() => {
-                        window.location.href = '/users/dashboard/';
+                        window.location.href = '/chat/';
                     }, 1500);
                 } else {
                     let errorMessage = result.message || 'Registration failed. Please try again.';
@@ -290,7 +256,7 @@
                     showAlert(errorMessage, 'danger');
                 }
             } catch (error) {
-                console.error('Network error:', error); // Debug log
+                console.error('Network error:', error);
                 showAlert('Network error. Please try again.', 'danger');
             } finally {
                 // Hide loading state

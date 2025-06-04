@@ -114,11 +114,6 @@
                                 </div>
                             </div>
                             
-                            <div class="mb-4 form-check">
-                                <input type="checkbox" class="form-check-input" id="rememberMe">
-                                <label class="form-check-label" for="rememberMe">Remember me</label>
-                            </div>
-                            
                             <button type="submit" class="btn btn-primary w-100 mb-3" id="loginBtn">
                                 <span class="spinner-border spinner-border-sm me-2 d-none" id="loginSpinner"></span>
                                 Sign In
@@ -126,12 +121,9 @@
                         </form>
                         
                         <div class="text-center">
-                            <p class="mb-2">
-                                <a href="#" class="text-decoration-none">Forgot your password?</a>
-                            </p>
                             <p class="text-muted">
                                 Don't have an account? 
-                                <a href="/users/register/" class="text-decoration-none fw-semibold">Sign up here</a>
+                                <a href="/users/register/" class="text-decoration-none fw-semibold">Create an account</a>
                             </p>
                         </div>
                     </div>
@@ -195,11 +187,11 @@
                     localStorage.setItem('userData', JSON.stringify(result.user));
                     
                     // Show success message
-                    showAlert('Login successful! Redirecting...', 'success');
+                    showAlert('Login successful! Redirecting to chat...', 'success');
                     
-                    // Redirect to dashboard
+                    // Redirect to chat
                     setTimeout(() => {
-                        window.location.href = '/users/dashboard/';
+                        window.location.href = '/chat/';
                     }, 1500);
                 } else {
                     showAlert(result.message || 'Login failed. Please try again.', 'danger');

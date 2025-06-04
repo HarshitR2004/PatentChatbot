@@ -1,7 +1,6 @@
 from rest_framework.serializers import ModelSerializer
 from .models import Documents
 from rest_framework import serializers
-from django.utils import timezone
 
 class DocumentSerializer(ModelSerializer):
     class Meta:

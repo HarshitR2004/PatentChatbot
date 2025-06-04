@@ -1,12 +1,11 @@
 from rest_framework import serializers
 from django.contrib.auth import authenticate
-from .models import Users
+from Users.models import Users
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = Users
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'created_at']
-        read_only_fields = ['id', 'created_at']
+        fields = ['userID', 'username', 'email']  # Only the fields you actually have
 
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
@@ -17,13 +16,14 @@ class LoginSerializer(serializers.Serializer):
         password = data.get('password')
         
         if email and password:
-            user = authenticate(username=email, password=password)
-            if user:
-                if user.is_active:
+            # Since you're using a custom user model, find user by email
+            try:
+                user = Users.objects.get(email=email)
+                if user.check_password(password):
                     data['user'] = user
                 else:
-                    raise serializers.ValidationError('User account is disabled.')
-            else:
+                    raise serializers.ValidationError('Invalid email or password.')
+            except Users.DoesNotExist:
                 raise serializers.ValidationError('Invalid email or password.')
         else:
             raise serializers.ValidationError('Email and password are required.')
@@ -36,14 +36,31 @@ class RegisterSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Users
-        fields = ['username', 'email', 'password', 'password_confirm', 'first_name', 'last_name']
+        fields = ['username', 'email', 'password', 'password_confirm']  # Removed first_name, last_name
     
-    def validate(self, data):
-        if data['password'] != data['password_confirm']:
-            raise serializers.ValidationError('Passwords do not match.')
-        return data
+    def validate_email(self, value):
+        if Users.objects.filter(email=value).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+        return value
+    
+    def validate_username(self, value):
+        if Users.objects.filter(username=value).exists():
+            raise serializers.ValidationError("A user with this username already exists.")
+        return value
+    
+    def validate(self, attrs):
+        if attrs['password'] != attrs['password_confirm']:
+            raise serializers.ValidationError({"password_confirm": "Passwords don't match"})
+        return attrs
     
     def create(self, validated_data):
-        validated_data.pop('password_confirm')
-        user = Users.objects.create_user(**validated_data)
+        # Remove password_confirm from validated_data
+        validated_data.pop('password_confirm', None)
+        
+        # Create user using only the fields you have
+        user = Users.objects.create_user(
+            username=validated_data['username'],
+            email=validated_data['email'],
+            password=validated_data['password']
+        )
         return user
