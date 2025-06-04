@@ -10,11 +10,19 @@
             <h1 class="text-3xl font-bold text-gray-900 mb-2">Patent Documents</h1>
             <p class="text-gray-600">Browse and manage your patent document collection</p>
         </div>
-        <!-- Upload Button -->
-        <button id="upload-btn" 
-                class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors flex items-center shadow-sm">
-            <i class="fas fa-upload mr-2"></i>Upload Document
-        </button>
+        <!-- Action Buttons -->
+        <div class="flex gap-3">
+            <!-- Back to Chat Button -->
+            <a href="{% url 'chat-page' %}"
+               class="bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition-colors flex items-center shadow-sm">
+                <i class="fas fa-comments mr-2"></i>Back to Chat
+            </a>
+            <!-- Upload Button -->
+            <button id="upload-btn" 
+                    class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors flex items-center shadow-sm">
+                <i class="fas fa-upload mr-2"></i>Upload Document
+            </button>
+        </div>
     </div>
 
     <!-- Stats Bar -->
