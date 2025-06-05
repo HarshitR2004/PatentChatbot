@@ -10,6 +10,20 @@
     <div class="flex justify-between items-center">
       <h1 class="text-lg font-semibold">PatentBot Chat</h1>
       <div class="flex items-center space-x-4">
+      
+      <!-- Model Selection -->
+        <div class="flex items-center space-x-2">
+            <label class="text-sm font-medium">Model:</label>
+            <select id="model-selection" class="bg-white text-black px-3 py-1 rounded text-sm">
+              <option value="gemma3-chroma">Gemma3 + Chroma</option>
+              <option value="mistral-weaviate">Mistral + Weaviate</option>
+              <option value="llama32-milvus">Llama3.2 + Milvus</option>
+            </select>
+          </div>
+
+
+
+
         <!-- Mode Selection -->
         <div class="flex items-center space-x-2">
           <label class="text-sm font-medium">Mode:</label>

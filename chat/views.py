@@ -6,7 +6,6 @@ from rest_framework import status
 from Users.models import Users
 from usersession.models import userSession
 from chat.models import Chat
-from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 import json
 import time
@@ -23,7 +22,7 @@ def generate_rag_response(query: str) -> str:
         response = client.chat(
             model=model,
             messages=[
-                {"role": "system", "content": "You are a patent expert assistant. Answer patent-related questions concisely in just 2–3 lines. Focus on practical, accurate information about patents, patent law, filing procedures, and intellectual property."},
+                {"role": "system", "content": "You are a patent expert assistant. Answer patent-related questions concisely in just 2 to 3 lines. Focus on practical, accurate information"},
                 {"role": "user", "content": query}
             ],
         )
@@ -40,7 +39,7 @@ def generate_rag_response_stream(query: str):
         stream = client.chat(
             model=model,
             messages=[
-                {"role": "system", "content": "You are a patent expert assistant. Answer patent-related questions concisely in just 2–3 lines. Focus on practical, accurate information about patents, patent law, filing procedures, and intellectual property."},
+                {"role": "system", "content": "You are a patent expert assistant. Answer patent-related questions concisely in just 2 to 3 lines. Focus on practical, accurate information"},
                 {"role": "user", "content": query}
             ],
             stream=True,
@@ -74,7 +73,7 @@ class ChatAPIView(APIView):
                 try:
                     # Use Ollama streaming
                     for chunk in generate_rag_response_stream(query):
-                        if chunk:  # Only process non-empty chunks
+                        if chunk:  
                             accumulated_text += chunk
                             token_count += 1
                             
@@ -87,7 +86,7 @@ class ChatAPIView(APIView):
                             }
                             
                             yield f"data: {json.dumps(chunk_data)}\n\n"
-                            time.sleep(0.02)  # Small delay for better UX
+                            time.sleep(0.02)  # Small delay
                 
                 except Exception as e:
                     error_data = {
@@ -145,7 +144,7 @@ class ChatAPIView(APIView):
             try:
                 # Use Ollama streaming
                 for chunk in generate_rag_response_stream(query):
-                    if chunk:  # Only process non-empty chunks
+                    if chunk:  
                         accumulated_text += chunk
                         token_count += 1
                         
@@ -159,7 +158,7 @@ class ChatAPIView(APIView):
                         }
                         
                         yield f"data: {json.dumps(chunk_data)}\n\n"
-                        time.sleep(0.02)  # Small delay for better UX
+                        time.sleep(0.02)  # Small delay
                         
             except Exception as e:
                 error_data = {
@@ -217,7 +216,6 @@ class ChatAPIView(APIView):
         response['Access-Control-Allow-Origin'] = '*'
         return response
 
-# Add SessionChatsAPIView if it doesn't exist
 class SessionChatsAPIView(APIView):
     def get(self, request, session_id):
         try:
