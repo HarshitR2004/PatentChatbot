@@ -14,22 +14,7 @@ import ollama
 client = ollama.Client()
 model = "gemma3" 
 
-def generate_rag_response(query: str) -> str:
-    """
-    Generates a concise RAG response in 2 to 3 lines using a system prompt and temperature setting.
-    """
-    try:
-        response = client.chat(
-            model=model,
-            messages=[
-                {"role": "system", "content": "You are a patent expert assistant. Answer patent-related questions concisely in just 2 to 3 lines. Focus on practical, accurate information"},
-                {"role": "user", "content": query}
-            ],
-        )
-        
-        return response['message']['content'] if 'message' in response else "No response generated."
-    except Exception as e:
-        return f"Sorry, I encountered an error while processing your query: {str(e)}"
+
 
 def generate_rag_response_stream(query: str):
     """
@@ -44,8 +29,8 @@ def generate_rag_response_stream(query: str):
             ],
             stream=True,
         )
-        
         for chunk in stream:
+            print(chunk['message']['content'])
             if 'message' in chunk and 'content' in chunk['message']:
                 yield chunk['message']['content']
                 
