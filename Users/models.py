@@ -48,3 +48,7 @@ class Users(AbstractBaseUser):
 
     def has_module_perms(self, app_label):
         return self.is_superuser
+    
+    @property
+    def id(self):
+        return self.userID

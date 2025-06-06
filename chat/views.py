@@ -29,6 +29,7 @@ def generate_rag_response_stream(query: str):
             ],
             stream=True,
         )
+        print(stream)
         for chunk in stream:
             print(chunk['message']['content'])
             if 'message' in chunk and 'content' in chunk['message']:
@@ -47,154 +48,108 @@ class ChatAPIView(APIView):
         if not query:
             return Response({'error': 'A query is required'}, status=status.HTTP_400_BAD_REQUEST)
 
-        if test_mode:
-            def generate_test_stream():
-                # Send start event
-                yield f"data: {json.dumps({'event': 'start', 'message': 'Generating response using AI...'})}\n\n"
-                
-                accumulated_text = ""
-                token_count = 0
-                
-                try:
-                    # Use Ollama streaming
-                    for chunk in generate_rag_response_stream(query):
-                        if chunk:  
-                            accumulated_text += chunk
-                            token_count += 1
-                            
-                            chunk_data = {
-                                'event': 'token',
-                                'token': chunk,
-                                'accumulated_text': accumulated_text,
-                                'token_count': token_count,
-                                'is_complete': False
-                            }
-                            
-                            yield f"data: {json.dumps(chunk_data)}\n\n"
-                            time.sleep(0.02)  # Small delay
-                
-                except Exception as e:
-                    error_data = {
-                        'event': 'error',
-                        'message': f"Error generating response: {str(e)}",
-                        'is_complete': True
-                    }
-                    yield f"data: {json.dumps(error_data)}\n\n"
-                    return
-                
-                # Send completion event
-                final_data = {
-                    'event': 'complete',
-                    'full_response': accumulated_text,
-                    'total_tokens': token_count,
-                    'is_complete': True
-                }
-                yield f"data: {json.dumps(final_data)}\n\n"
-            
-            response = StreamingHttpResponse(
-                generate_test_stream(),
-                content_type='text/event-stream'
-            )
-            response['Cache-Control'] = 'no-cache'
-            response['Access-Control-Allow-Origin'] = '*'
-            return response
-
-        # Normal mode: Streaming with database save
-        # Validate session first
-        if not session_id:
-            if not user_id:
-                return Response({"error": "user_id is required"}, status=status.HTTP_400_BAD_REQUEST)
-
-            try:
-                user = Users.objects.get(pk=user_id)
-            except Users.DoesNotExist:
-                return Response({"error": "Invalid user_id"}, status=status.HTTP_400_BAD_REQUEST)
-
-            session = userSession.objects.create(user_id=user)
-        else:
-            try:
-                session = userSession.objects.get(pk=session_id)
-            except userSession.DoesNotExist:
-                return Response({"error": "Invalid session_id"}, status=status.HTTP_400_BAD_REQUEST)
-
-        def generate_normal_stream():
-            start_time = timezone.now()
-            
-            # Send start event with session info
-            yield f"data: {json.dumps({'event': 'start', 'session_id': session.session_id, 'message': 'Generating AI response...'})}\n\n"
-            
+        def generate_stream():
             accumulated_text = ""
             token_count = 0
-            
+            start_time = timezone.now()
+            session = None
+
+            # Session logic for normal mode
+            if not test_mode:
+                if not session_id:
+                    if not user_id:
+                        yield f"data: {json.dumps({'event': 'error', 'message': 'user_id is required', 'is_complete': True})}\n\n"
+                        return
+                    try:
+                        user = Users.objects.get(pk=user_id)
+                    except Users.DoesNotExist:
+                        yield f"data: {json.dumps({'event': 'error', 'message': 'Invalid user_id', 'is_complete': True})}\n\n"
+                        return
+                    session = userSession.objects.create(user_id=user)
+                else:
+                    try:
+                        session = userSession.objects.get(pk=session_id)
+                    except userSession.DoesNotExist:
+                        yield f"data: {json.dumps({'event': 'error', 'message': 'Invalid session_id', 'is_complete': True})}\n\n"
+                        return
+
+            # Send start event
+            start_event = {'event': 'start', 'message': 'Generating response using AI...'}
+            if not test_mode and session:
+                start_event['session_id'] = session.session_id
+            yield f"data: {json.dumps(start_event)}\n\n"
+
             try:
-                # Use Ollama streaming
                 for chunk in generate_rag_response_stream(query):
-                    if chunk:  
+                    if chunk:
                         accumulated_text += chunk
                         token_count += 1
-                        
                         chunk_data = {
                             'event': 'token',
                             'token': chunk,
                             'accumulated_text': accumulated_text,
-                            'session_id': session.session_id,
                             'token_count': token_count,
                             'is_complete': False
                         }
-                        
+                        if not test_mode and session:
+                            chunk_data['session_id'] = session.session_id
                         yield f"data: {json.dumps(chunk_data)}\n\n"
-                        time.sleep(0.02)  # Small delay
-                        
+                        time.sleep(0.02)
             except Exception as e:
                 error_data = {
                     'event': 'error',
-                    'session_id': session.session_id,
                     'message': f"Error generating response: {str(e)}",
                     'is_complete': True
                 }
+                if not test_mode and session:
+                    error_data['session_id'] = session.session_id
                 yield f"data: {json.dumps(error_data)}\n\n"
                 return
-            
-            # Save to database after streaming is complete
-            end_time = timezone.now()
-            
-            latest_chat = Chat.objects.order_by('-chatID').first()
-            new_chat_id = (latest_chat.chatID + 1) if latest_chat else 1
-            
-            try:
-                chat = Chat.objects.create(
-                    chatID=new_chat_id,
-                    queryText=query,
-                    responseText=accumulated_text,
-                    session_id=session,
-                    startTime=start_time,
-                    endTime=end_time,
-                )
-                
-                # Send completion event with chat info
+
+            # Completion event
+            if not test_mode and session:
+                end_time = timezone.now()
+                latest_chat = Chat.objects.order_by('-chatID').first()
+                new_chat_id = (latest_chat.chatID + 1) if latest_chat else 1
+                try:
+                    chat = Chat.objects.create(
+                        chatID=new_chat_id,
+                        queryText=query,
+                        responseText=accumulated_text,
+                        session_id=session,
+                        startTime=start_time,
+                        endTime=end_time,
+                    )
+                    final_data = {
+                        'event': 'complete',
+                        'full_response': accumulated_text,
+                        'total_tokens': token_count,
+                        'chat_id': chat.chatID,
+                        'session_id': session.session_id,
+                        'start_time': start_time.isoformat(),
+                        'end_time': end_time.isoformat(),
+                        'is_complete': True
+                    }
+                    yield f"data: {json.dumps(final_data)}\n\n"
+                except Exception as e:
+                    error_data = {
+                        'event': 'error',
+                        'session_id': session.session_id,
+                        'message': f"Error saving chat: {str(e)}",
+                        'is_complete': True
+                    }
+                    yield f"data: {json.dumps(error_data)}\n\n"
+            else:
                 final_data = {
                     'event': 'complete',
                     'full_response': accumulated_text,
                     'total_tokens': token_count,
-                    'chat_id': chat.chatID,
-                    'session_id': session.session_id,
-                    'start_time': start_time.isoformat(),
-                    'end_time': end_time.isoformat(),
                     'is_complete': True
                 }
                 yield f"data: {json.dumps(final_data)}\n\n"
-                
-            except Exception as e:
-                error_data = {
-                    'event': 'error',
-                    'session_id': session.session_id,
-                    'message': f"Error saving chat: {str(e)}",
-                    'is_complete': True
-                }
-                yield f"data: {json.dumps(error_data)}\n\n"
-        
+
         response = StreamingHttpResponse(
-            generate_normal_stream(),
+            generate_stream(),
             content_type='text/event-stream'
         )
         response['Cache-Control'] = 'no-cache'
